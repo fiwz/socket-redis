@@ -11,7 +11,8 @@ require('dotenv').config(); // env
 const fs = require('fs');
 
 // Redis
-const redisClient = require('./config/redis');
+const redis = require('./config/redis');
+const redisClient = redis.redisClient
 
 // Express Middleware for serving static
 // files and parsing the request body
@@ -53,21 +54,28 @@ app.get('/ui',function(req,res){
 // API - Join Chat
 app.post('/join', function(req, res) {
     var username = req.body.username;
-    console.log('debug', chatters.indexOf(username) === -1, chatters.indexOf(username))
-    if (chatters.indexOf(username) === -1) {
-        chatters.push(username);
-        redisClient.set('chat_users', JSON.stringify(chatters));
+
+    redis.chattersData.then((ctr) => {
+        if(ctr) {
+            chatters = JSON.parse(ctr);
+        }
+        let arrChatters = [];
+        for (var i = 0; i < chatters.length; i++) {
+            arrChatters.push(chatters[i]);
+        }
+        arrChatters.push(username);
+        redisClient.set('chat_users', JSON.stringify(arrChatters));
+
+        console.log('server:arrChatters', arrChatters)
+
+        mainNamespace.emit('count_chatters', { numberOfChatters: arrChatters.length, member_joined: arrChatters})
 
         responseData(res, 200, {
-            'chatters': chatters,
+            'chatters': arrChatters,
             'status': 'OK'
         })
-    } else {
+    })
 
-        responseData(res, 500, {
-            'status': 'failed'
-        })
-    }
 });
 
 // API - Leave Chat
@@ -84,38 +92,73 @@ app.post('/leave', function(req, res) {
 app.post('/send_message', function(req, res) {
     var username = req.body.username;
     var message = req.body.message;
-    chat_messages.push({
-        'sender': username,
-        'message': message
-    });
-    redisClient.set('chat_app_messages', JSON.stringify(chat_messages));
-    responseData(res, 200, {
-        'status': 'OK'
+
+    redis.chatAppMessages.then((ctr) => {
+        let messageData = []
+        if(ctr) {
+            messageData = JSON.parse(ctr);
+        }
+
+        let arrMsg = [];
+        for (var i = 0; i < messageData.length; i++) {
+            arrMsg.push(messageData[i]);
+        }
+        arrMsg.push({
+            'sender': username,
+            'message': message
+        });
+
+        console.log('arrMsg', arrMsg)
+
+        redisClient.set('chat_app_messages', JSON.stringify(arrMsg));
+        responseData(res, 200, {
+            'status': 'OK'
+        })
     })
+
 });
 
 // API - Get Messages
 app.get('/get_messages', function(req, res) {
-    responseData(res, 200, chat_messages)
+    // responseData(res, 200, chat_messages)
+
+    redis.chatAppMessages.then((ctr) => {
+        let messageData = []
+        if(ctr) {
+            messageData = JSON.parse(ctr);
+        }
+        console.log('server:get_msg', messageData)
+        responseData(res, 200, messageData)
+    })
+
 });
 
 // API - Get Chatters
 app.get('/get_chatters', function(req, res) {
-    console.log('chatters', chatters, chatters.length)
-    responseData(res, 200, { numberOfChatters: chatters.length, member_joined: chatters})
+    redis.chattersData.then((ctr) => {
+        let userData = []
+        if(ctr) {
+            userData = JSON.parse(ctr);
+        }
+        responseData(res, 200, { numberOfChatters: userData.length, member_joined: userData})
+    })
 });
 
 /**
  * Socket
  */
 // Define Namespace
-const agentNamespace = io.of("/agents");
+const mainNamespace = io;
+// const agentNamespace = io.of("/agents");
 
 // Register Handlers
-const registerAgentHandlers = require("./handler/agentHandler");
+const registerMainHandlers = require("./handler/mainHandler");
+// const registerAgentHandlers = require("./handler/agentHandler");
 const onConnection = (socket) => {
-    registerAgentHandlers(agentNamespace, socket);
+    registerMainHandlers(mainNamespace, socket);
+    // registerAgentHandlers(agentNamespace, socket);
 }
 
 // Socket Connection
-io.on("connection", onConnection);
+mainNamespace.on("connection", onConnection);
+// agentNamespace.on("connection", onConnection);

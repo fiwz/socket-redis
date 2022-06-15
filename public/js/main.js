@@ -1,19 +1,20 @@
 $(() => {
-const socket = io('http://localhost:4000/agents');
+const socket = io('http://localhost:4000');
+// const socket = io('http://localhost:4000/agents');
 
 $.get('/get_chatters', function(response) {
-    console.log('get chatters', response)
+    console.log('/get_chatters', response)
     $('.chat-info').text("There are currently " + response.data.numberOfChatters + " people in the chat room");
 
     $("#chat-member ul").html("")
     response.data.member_joined.forEach(member => {
-        console.log('member', member)
         $("#chat-member ul").append(`<li>${member}</li>`);
     })
 });
 
 $('#join-chat').click(function() {
     console.log('clicked join')
+
     var username = $.trim($('#username').val());
     $.ajax({
         url: '/join',
@@ -24,9 +25,6 @@ $('#join-chat').click(function() {
         success: function(response) {
             console.log('responsenya', response)
             if (response.data.status == 'OK') { //username doesn't already exists
-                socket.emit('update_chatter_count', {
-                    'action': 'increase'
-                });
                 $('.chat').show();
                 $('#leave-chat').data('username', username);
                 $('#send-message').attr('data-username', username);
@@ -45,13 +43,13 @@ function addMessage(name, message) {
 }
 
 function getMessages() {
-    console.log('get messages called')
     $.get('/get_messages', function(response) {
-        if (response.length > 0) {
-            var message_count = response.length;
+        console.log('browser:get_messages', response)
+        var message_count = Object.keys(response.data).length;
+        if (message_count > 0) {
             var html = '';
             for (var x = 0; x < message_count; x++) {
-                html += "<div class='msg mb-2'><div class='user font-weight-bold'>" + response[x]['sender'] + "</div><div class='txt'>" + response[x]['message'] + "</div></div>";
+                html += "<div class='msg mb-2'><div class='user font-weight-bold'>" + response.data[x].sender + "</div><div class='txt'>" + response.data[x].message + "</div></div>";
             }
             $('#messages').html(html);
         }

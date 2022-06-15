@@ -20,29 +20,58 @@ redisClient = new Redis({
     db: process.env.REDIS_DB || 0, // Defaults to 0
 });
 
-// dev testing
-redisClient.set("devtesting", "the value"); // Returns a promise which resolves to "OK" when the command succeeds.
-
 // Redis Client Ready
 redisClient.once('ready', function() {
     console.log('redis client is ready')
+
+    // dev testing
+    redisClient.set("devtesting", "the value"); // Returns a promise which resolves to "OK" when the command succeeds.
 
     // Flush Redis DB
     // redisClient.flushdb();
 
     // Initialize Chatters
-    redisClient.get('chat_users', function(err, reply) {
-        if (reply) {
-            chatters = JSON.parse(reply);
-        }
-    });
+    // redisClient.get('chat_users', function(err, reply) {
+    //     if (reply) {
+    //         chatters = JSON.parse(reply);
+    //     }
+    // });
 
     // Initialize Messages
-    redisClient.get('chat_app_messages', function(err, reply) {
-        if (reply) {
-            chat_messages = JSON.parse(reply);
-        }
-    });
+    // redisClient.get('chat_app_messages', function(err, reply) {
+    //     if (reply) {
+    //         chat_messages = JSON.parse(reply);
+    //     }
+    // });
+
 });
 
-module.exports = { redisClient }
+const user1 = "developer"
+
+const chattersData =
+    redisClient.get('chat_users', function(err, reply) {
+        if (reply) {
+            console.log('user is:', reply)
+            let chatters = JSON.parse(reply);
+            let arrChatters = [];
+            for (var i = 0; i < chatters.length; i++) {
+                arrChatters.push(chatters[i]);
+            }
+            return arrChatters
+        }
+    });
+
+const chatAppMessages =
+    redisClient.get('chat_app_messages', function(err, reply) {
+        if (reply) {
+            console.log('messagessss from redis', reply)
+            chat_messages = JSON.parse(reply);
+            let arrMessage = [];
+            for (var i = 0; i < chat_messages.length; i++) {
+                arrMessage.push(chat_messages[i]);
+            }
+            return arrMessage
+        }
+    });
+
+module.exports = { redisClient, chattersData, user1, chatAppMessages }
