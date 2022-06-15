@@ -1,6 +1,6 @@
 {
-    "user": "",
-    "password": "",
-    "host": "",
+    "user": "qdev",
+    "password": 123456,
+    "host": "127.0.0.1",
     "port": 6379
 }
