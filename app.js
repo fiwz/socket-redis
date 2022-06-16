@@ -11,8 +11,9 @@ require('dotenv').config(); // env
 const fs = require('fs');
 
 // Redis
-const redis = require('./config/redis');
-const redisClient = redis.redisClient
+// const redis = require('./config/redis');
+// const redisClient = redis.redisClient
+const redisNew = require('./config/redis-new');
 
 // Express Middleware for serving static
 // files and parsing the request body
@@ -54,19 +55,24 @@ app.get('/ui',function(req,res){
 // API - Join Chat
 app.post('/join', function(req, res) {
     var username = req.body.username;
-
-    redis.chattersData.then((ctr) => {
-        if(ctr) {
-            chatters = JSON.parse(ctr);
-        }
+    redisNew.justVariable().then((response) => {
         let arrChatters = [];
-        for (var i = 0; i < chatters.length; i++) {
-            arrChatters.push(chatters[i]);
+        if(response.chattersData) {
+            // console.log('server:/join response.chattersData', response.chattersData)
+            chatters = JSON.parse(response.chattersData);
+            for (var i = 0; i < chatters.length; i++) {
+                arrChatters.push(chatters[i]);
+            }
+            // console.log('chatters.length awal: ', chatters.length)
+            // console.log('sebelum: ', arrChatters)
         }
-        arrChatters.push(username);
-        redisClient.set('chat_users', JSON.stringify(arrChatters));
 
-        console.log('server:arrChatters', arrChatters)
+        arrChatters.push(username);
+
+        (async () => {
+            await redisNew.redisClient.set('chat_users', JSON.stringify(arrChatters));
+            // console.log('server:arrChatters setelah: ', arrChatters)
+        })()
 
         mainNamespace.emit('count_chatters', { numberOfChatters: arrChatters.length, member_joined: arrChatters})
 
@@ -75,14 +81,13 @@ app.post('/join', function(req, res) {
             'status': 'OK'
         })
     })
-
 });
 
 // API - Leave Chat
 app.post('/leave', function(req, res) {
     var username = req.body.username;
     chatters.splice(chatters.indexOf(username), 1);
-    redisClient.set('chat_users', JSON.stringify(chatters));
+    redisNew.redisClient.set('chat_users', JSON.stringify(chatters));
     responseData(res, 200, {
         'status': 'OK'
     })
@@ -93,41 +98,40 @@ app.post('/send_message', function(req, res) {
     var username = req.body.username;
     var message = req.body.message;
 
-    redis.chatAppMessages.then((ctr) => {
+    redisNew.justVariable().then((response) => {
         let messageData = []
-        if(ctr) {
-            messageData = JSON.parse(ctr);
+        let arrMsg = [];
+        if(response.chatAppMessages) {
+            messageData = JSON.parse(response.chatAppMessages);
+            console.log('server:send_message', messageData)
+
+            for (var i = 0; i < messageData.length; i++) {
+                arrMsg.push(messageData[i]);
+            }
         }
 
-        let arrMsg = [];
-        for (var i = 0; i < messageData.length; i++) {
-            arrMsg.push(messageData[i]);
-        }
         arrMsg.push({
             'sender': username,
             'message': message
         });
 
-        console.log('arrMsg', arrMsg)
+        (async () => {
+            await redisNew.redisClient.set('chat_app_messages', JSON.stringify(arrMsg))
+        })()
 
-        redisClient.set('chat_app_messages', JSON.stringify(arrMsg));
-        responseData(res, 200, {
-            'status': 'OK'
-        })
+        responseData(res, 200, { 'status': 'OK' })
     })
-
 });
 
 // API - Get Messages
 app.get('/get_messages', function(req, res) {
-    // responseData(res, 200, chat_messages)
-
-    redis.chatAppMessages.then((ctr) => {
+    redisNew.justVariable().then((response) => {
         let messageData = []
-        if(ctr) {
-            messageData = JSON.parse(ctr);
+        if(response.chatAppMessages) {
+            messageData = JSON.parse(response.chatAppMessages);
+            console.log('server:get_msg', messageData)
         }
-        console.log('server:get_msg', messageData)
+
         responseData(res, 200, messageData)
     })
 
@@ -135,13 +139,19 @@ app.get('/get_messages', function(req, res) {
 
 // API - Get Chatters
 app.get('/get_chatters', function(req, res) {
-    redis.chattersData.then((ctr) => {
+    console.info('status:', redisNew.redisClient.status)
+
+    // redisClient.connect(function () { /* Do your stuff */
+    redisNew.justVariable().then((response) => {
         let userData = []
-        if(ctr) {
-            userData = JSON.parse(ctr);
+        if(response.chattersData) {
+            console.log('response.chattersData', response.chattersData)
+            userData = JSON.parse(response.chattersData);
         }
+        // (async () => { await redisNew.redisClient.set('test_aja', 'yeeeaaa') })()
         responseData(res, 200, { numberOfChatters: userData.length, member_joined: userData})
     })
+    // });
 });
 
 /**

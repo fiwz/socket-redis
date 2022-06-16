@@ -18,6 +18,16 @@ redisClient = new Redis({
     username: process.env.REDIS_USERNAME || "default", // needs Redis >= 6
     password: process.env.REDIS_PASSWORD || "my-top-secret",
     db: process.env.REDIS_DB || 0, // Defaults to 0
+    retryStrategy: function (times) {
+
+        if (times % 4 ==0) {
+          logger.error("redisRetryError", 'Redis reconnect exhausted after 3 retries.');
+          return null;
+        }
+
+        return 200;
+
+    }
 });
 
 // Redis Client Ready
