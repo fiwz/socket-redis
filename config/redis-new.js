@@ -42,36 +42,39 @@ async function justVariable() {
         const chattersData =
             // await redisClient.get('chat_users', function(err, reply) {
             await redisClient.call('JSON.GET', 'chat_users', function(err, reply) {
+                let arrChatters = []
                 if (reply) {
-                    console.log('redis new:user is:', reply)
-                    let chatters = JSON.parse(reply);
-                    let arrChatters = [];
-                    for (var i = 0; i < chatters.length; i++) {
-                        arrChatters.push(chatters[i]);
-                    }
-                    return arrChatters
+                    arrChatters = JSON.parse(reply);
                 }
+                return arrChatters
             })
 
         const chatAppMessages =
-            // redisClient.exists('chat_app_messages').then((respExists) => {
-            //     console.log('raw exists is: ', respExists)
-            //     (async() => {
-                    // await redisClient.get('chat_app_messages', function(err, reply) {
-                    await redisClient.call('JSON.GET', 'chat_app_messages', function(err, reply) {
+            await redisClient.exists('chat_app_messages').then((respExists) => {
+                console.log('raw exists is: ', respExists)
+                return respExists
+            })
+            .then( async (result1) => {
+                console.log('from the first then: ', result1)
+                // return "second then"
+                let arrMessage = [];
+                if(result1 !== 0) {
+                    let msgFromRedis = await redisClient.call('JSON.GET', 'chat_app_messages', function(err, reply) {
                         if (reply) {
-                            console.log('redis new:messagessss from redis', reply)
+                            // console.log('redis new:messagessss from redis', reply)
                             chat_messages = JSON.parse(reply);
-                            let arrMessage = [];
-                            for (var i = 0; i < chat_messages.length; i++) {
-                                arrMessage.push(chat_messages[i]);
-                            }
-                            console.log('arrMessage', arrMessage)
-                            return arrMessage
+                            return chat_messages
+                        } else {
+                            return []
                         }
                     });
-            //     })
-            // })
+
+                    arrMessage = msgFromRedis
+                    console.log('msgFromRedis', msgFromRedis)
+                }
+
+                return arrMessage
+            })
 
         const user1 = "developer"
 
@@ -86,5 +89,6 @@ async function justVariable() {
 };
 
 // console.log('status:', redisClient.status)
+// justVariable().then(x => console.log('result is:', x))
 
 module.exports = { justVariable, redisClient }

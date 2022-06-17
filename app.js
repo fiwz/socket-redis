@@ -107,8 +107,8 @@ app.post('/send_message', function(req, res) {
     redisNew.justVariable().then((response) => {
         let arrMsg = [];
         let objMsg = {}
-        if(response.chatAppMessages) {
-            arrMsg = JSON.parse(response.chatAppMessages);
+        if(response.chatAppMessages.length !== 0) {
+            arrMsg = JSON.parse(response.chatAppMessages)
         }
         arrMsg.push(newmsg);
 
@@ -125,7 +125,7 @@ app.post('/send_message', function(req, res) {
 app.get('/get_messages', function(req, res) {
     redisNew.justVariable().then((response) => {
         let messageData = []
-        if(response.chatAppMessages) {
+        if(response.chatAppMessages.length !== 0) {
             messageData = JSON.parse(response.chatAppMessages);
             console.log('server:get_msg', messageData)
         }
