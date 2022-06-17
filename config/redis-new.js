@@ -38,11 +38,10 @@ redisClient.once('ready', function() {
 });
 
 async function justVariable() {
-// const justVariable = {
     try {
         const chattersData =
-        // await redisClient.connect(function () { /* Do your stuff */
-            await redisClient.get('chat_users', function(err, reply) {
+            // await redisClient.get('chat_users', function(err, reply) {
+            await redisClient.call('JSON.GET', 'chat_users', function(err, reply) {
                 if (reply) {
                     console.log('redis new:user is:', reply)
                     let chatters = JSON.parse(reply);
@@ -53,20 +52,26 @@ async function justVariable() {
                     return arrChatters
                 }
             })
-        // });
 
         const chatAppMessages =
-            await redisClient.get('chat_app_messages', function(err, reply) {
-                if (reply) {
-                    console.log('redis new:messagessss from redis', reply)
-                    chat_messages = JSON.parse(reply);
-                    let arrMessage = [];
-                    for (var i = 0; i < chat_messages.length; i++) {
-                        arrMessage.push(chat_messages[i]);
-                    }
-                    return arrMessage
-                }
-            });
+            // redisClient.exists('chat_app_messages').then((respExists) => {
+            //     console.log('raw exists is: ', respExists)
+            //     (async() => {
+                    // await redisClient.get('chat_app_messages', function(err, reply) {
+                    await redisClient.call('JSON.GET', 'chat_app_messages', function(err, reply) {
+                        if (reply) {
+                            console.log('redis new:messagessss from redis', reply)
+                            chat_messages = JSON.parse(reply);
+                            let arrMessage = [];
+                            for (var i = 0; i < chat_messages.length; i++) {
+                                arrMessage.push(chat_messages[i]);
+                            }
+                            console.log('arrMessage', arrMessage)
+                            return arrMessage
+                        }
+                    });
+            //     })
+            // })
 
         const user1 = "developer"
 

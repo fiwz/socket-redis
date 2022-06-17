@@ -70,7 +70,8 @@ app.post('/join', function(req, res) {
         arrChatters.push(username);
 
         (async () => {
-            await redisNew.redisClient.set('chat_users', JSON.stringify(arrChatters));
+            // await redisNew.redisClient.set('chat_users', JSON.stringify(arrChatters));
+            await redisNew.redisClient.call('JSON.SET', 'chat_users', '.', JSON.stringify(arrChatters))
             // console.log('server:arrChatters setelah: ', arrChatters)
         })()
 
@@ -98,25 +99,22 @@ app.post('/send_message', function(req, res) {
     var username = req.body.username;
     var message = req.body.message;
 
+    let newmsg = {
+        'sender': username,
+        'message': message
+    };
+
     redisNew.justVariable().then((response) => {
-        let messageData = []
         let arrMsg = [];
+        let objMsg = {}
         if(response.chatAppMessages) {
-            messageData = JSON.parse(response.chatAppMessages);
-            console.log('server:send_message', messageData)
-
-            for (var i = 0; i < messageData.length; i++) {
-                arrMsg.push(messageData[i]);
-            }
+            arrMsg = JSON.parse(response.chatAppMessages);
         }
-
-        arrMsg.push({
-            'sender': username,
-            'message': message
-        });
+        arrMsg.push(newmsg);
 
         (async () => {
-            await redisNew.redisClient.set('chat_app_messages', JSON.stringify(arrMsg))
+            // await redisNew.redisClient.set('chat_app_messages', JSON.stringify(arrMsg))
+            await redisNew.redisClient.call('JSON.SET', 'chat_app_messages', '.', JSON.stringify(arrMsg))
         })()
 
         responseData(res, 200, { 'status': 'OK' })
@@ -143,12 +141,25 @@ app.get('/get_chatters', function(req, res) {
 
     // redisClient.connect(function () { /* Do your stuff */
     redisNew.justVariable().then((response) => {
+        // console.log('rawnya: ', response)
+
         let userData = []
         if(response.chattersData) {
             console.log('response.chattersData', response.chattersData)
             userData = JSON.parse(response.chattersData);
         }
+
+        /** Dev Debug */
+        // Set String
         // (async () => { await redisNew.redisClient.set('test_aja', 'yeeeaaa') })()
+
+        // Set JSON
+        // (command_name, key, root, value)
+        // (async () => {
+        //     await redisNew.redisClient.call('JSON.SET', 'testing_json', '.', '{ "message": "wkwkwk" }')
+        //     console.log('aaaaaa', await redisNew.redisClient.exists('chat_app_messages'));
+        // })()
+
         responseData(res, 200, { numberOfChatters: userData.length, member_joined: userData})
     })
     // });
