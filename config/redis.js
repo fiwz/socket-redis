@@ -5,6 +5,7 @@
 // You can also use `import Redis from "ioredis"`
 // if your project is an ESM module or a TypeScript project.
 const Redis = require("ioredis");
+const bcrypt = require("bcrypt")
 
 // Create a Redis instance.
 // By default, it will connect to localhost:6379.
@@ -30,12 +31,15 @@ redisClient = new Redis({
 });
 
 // Redis Client Ready
-redisClient.once('ready', function() {
+redisClient.once('ready', async function() {
     console.log('redis new:redis client is ready')
 
     // dev testing
     redisClient.set("devtesting", "the value"); // Returns a promise which resolves to "OK" when the command succeeds.
     redisClient.call('JSON.SET', 'devtesting_json', '.', JSON.stringify({ "from": "developer", "message": "helloooo" })) // test reJSON
+
+    redisClient.hmset('user:100', ["username", "developer", "password", await bcrypt.hash("password123", 10)])
+    redisClient.hmset('user:101', ["username", "developer2", "password", await bcrypt.hash("password123", 10)])
 });
 
 const justVariable = {

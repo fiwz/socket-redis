@@ -108,6 +108,72 @@ $('#send-message').click(function() {
     });
 });
 
+/** Auth */
+// Login
+$('#btn-login').click(function() {
+    var username = $.trim($('#uname').val());
+    var password = $.trim($('#password').val());
+
+    console.log('User Login: ', 'username: ', username, 'password: ', password)
+
+    $.ajax({
+        url: '/login',
+        type: 'POST',
+        data: {
+            username: username,
+            password: password
+        },
+        success: function(response) {
+            console.log('Login response: ', response)
+            showLoginInfo()
+        }
+    });
+});
+
+function showLoginInfo() {
+    $.get('/login-info', function(response) {
+        console.log('/login-info', response)
+        console.log('type of /login-info', typeof(response.data))
+        console.log('length of /login-info', response.data.length)
+
+        if(response.data) {
+            $('.login-info ul').html("");
+            $(".login-info ul").append(`
+                <li>ID: ${response.data.id}</li>
+                <li>Username: ${response.data.username}</li>
+            `);
+
+            $('.login-info').removeClass('d-none')
+            $('.login-info').addClass('d-block')
+        }
+    });
+}
+
+// Show Login Info on Reload
+showLoginInfo()
+
+// Logout
+$('#btn-logout').click(function() {
+    console.log('logout clicked')
+
+    $.ajax({
+        url: '/logout',
+        type: 'POST',
+        data: {
+        },
+        success: function(response) {
+            console.log('Logout response: ', response)
+
+            alert(response.message)
+            $('.login-info ul').html("");
+            $('.login-info').removeClass('d-block')
+            $('.login-info').addClass('d-none')
+        }
+    });
+});
+
+
+/** Socket */
 socket.on('send', function(data) {
     console.log('socket message in client', data)
     var username = data.username;

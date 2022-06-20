@@ -9,6 +9,9 @@ const io = require('socket.io')(http, {
 const PORT = process.env.PORT || 4000;
 require('dotenv').config(); // env
 const fs = require('fs');
+const bcrypt = require("bcrypt");
+const session = require("express-session");
+let RedisStore = require("connect-redis")(session);
 
 // Redis
 const redis = require('./config/redis');
@@ -31,6 +34,31 @@ app.use(bodyParser.urlencoded({ extended: false }));
 // app.use('/main-page', mainRouter)
 
 const { responseData, responseMessage } = require('./utils/response-handler');
+
+// Session Middleware
+const sessionMiddleware = session({
+    store: new RedisStore({ client: redisClient }),
+    secret: "keyboard cat",
+    saveUninitialized: true,
+    resave: true,
+});
+
+const auth = (req, res, next) => {
+    if (!req.session.user) {
+        return responseMessage(res, 403, 'User Session Required')
+    }
+    next();
+};
+
+/** Store session in redis. */
+app.use(sessionMiddleware);
+io.use((socket, next) => {
+  /** @ts-ignore */
+  sessionMiddleware(socket.request, socket.request.res || {}, next);
+  // sessionMiddleware(socket.request, socket.request.res, next); will not work with websocket-only
+  // connections, as 'socket.request.res' will be undefined in that case
+});
+
 
 // Create Server
 const server = http.listen(PORT, () => console.log(`Server running at port: ${PORT}`));
@@ -67,14 +95,14 @@ app.post('/join', function(req, res) {
         // emit
         mainNamespace.emit('count_chatters', { numberOfChatters: arrChatters.length, member_joined: arrChatters})
 
-        responseData(res, 200, {
+        return responseData(res, 200, {
             'chatters': arrChatters,
             'status': 'OK'
         })
     })
     .catch((error) => {
         console.log('Error Join Chat ', error)
-        responseData(res, 200, {
+        return responseData(res, 200, {
             'chatters': [],
             'status': 'Error'
         })
@@ -86,7 +114,7 @@ app.post('/leave', function(req, res) {
     var username = req.body.username;
     chatters.splice(chatters.indexOf(username), 1);
     redisClient.set('chat_users', JSON.stringify(chatters));
-    responseData(res, 200, {
+    return responseData(res, 200, {
         'status': 'OK'
     })
 });
@@ -110,11 +138,11 @@ app.post('/send_message', async function(req, res) {
         arrMsg.push(newmsg);
         await redisClient.call('JSON.SET', 'chat_app_messages', '.', JSON.stringify(arrMsg))
 
-        responseData(res, 200, { 'status': 'OK' })
+        return responseData(res, 200, { 'status': 'OK' })
     })
     .catch((error) => {
         console.log('Error Send Message ', error)
-        responseData(res, 200, [])
+        return responseData(res, 200, [])
     })
 });
 
@@ -124,11 +152,11 @@ app.get('/get_messages', async function(req, res) {
     .then((response) => {
         let messageData = []
         messageData = JSON.parse(response);
-        responseData(res, 200, messageData)
+        return responseData(res, 200, messageData)
     })
     .catch((error) => {
         console.log('Error Get Messages ', error)
-        responseData(res, 200, [])
+        return responseData(res, 200, [])
     })
 });
 
@@ -142,13 +170,45 @@ app.get('/get_chatters', async function(req, res) {
             userData = JSON.parse(response);
         }
 
-        responseData(res, 200, { numberOfChatters: userData.length, member_joined: userData})
+        return responseData(res, 200, { numberOfChatters: userData.length, member_joined: userData})
     })
     .catch((error) => {
         console.log('Error Get Chatters ', error)
-        responseData(res, 200, { numberOfChatters: 0, member_joined: []})
+        return responseData(res, 200, { numberOfChatters: 0, member_joined: []})
     })
 });
+
+// API - Login
+app.post('/login', async function(req, res) {
+    const { username, password } = req.body;
+    if (username !== "developer" && username !== "developer2") {
+        return responseData(res, 403, { "message": "User Not Found", "data": null })
+    } else {
+        const data = await redisClient.hgetall('user:100');
+        if (await bcrypt.compare(password, data.password)) {
+            let user = { id: 100, username }
+            req.session.user = user;
+            console.log('after login ', '===========', req.session)
+
+            return responseData(res, 200, user)
+        }
+    }
+
+    console.log('from server: /login result: ', username, password)
+    return responseMessage(res, 400, "Invalid username or password" )
+});
+
+// API - Login Info
+app.get('/login-info', auth, async function(req, res) {
+    console.log('login info called')
+    return responseData(res, 200, req.session.user)
+});
+
+app.post("/logout", auth, (req, res) => {
+    req.session.destroy(() => {});
+    return responseMessage(res, 200, "Logout Success" )
+});
+
 
 /**
  * Socket
