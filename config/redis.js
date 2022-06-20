@@ -11,7 +11,6 @@ const Redis = require("ioredis");
 // We are going to cover how to specify connection options soon.
 // const redis = new Redis();
 let redisClient = '';
-
 redisClient = new Redis({
     port: process.env.REDIS_PORT || 6379, // Redis port
     host: process.env.REDIS_HOST || "127.0.0.1", // Redis host
@@ -32,56 +31,48 @@ redisClient = new Redis({
 
 // Redis Client Ready
 redisClient.once('ready', function() {
-    console.log('redis client is ready')
+    console.log('redis new:redis client is ready')
 
     // dev testing
     redisClient.set("devtesting", "the value"); // Returns a promise which resolves to "OK" when the command succeeds.
-
-    // Flush Redis DB
-    // redisClient.flushdb();
-
-    // Initialize Chatters
-    // redisClient.get('chat_users', function(err, reply) {
-    //     if (reply) {
-    //         chatters = JSON.parse(reply);
-    //     }
-    // });
-
-    // Initialize Messages
-    // redisClient.get('chat_app_messages', function(err, reply) {
-    //     if (reply) {
-    //         chat_messages = JSON.parse(reply);
-    //     }
-    // });
-
+    redisClient.call('JSON.SET', 'devtesting_json', '.', JSON.stringify({ "from": "developer", "message": "helloooo" })) // test reJSON
 });
 
-const user1 = "developer"
-
-const chattersData =
-    redisClient.get('chat_users', function(err, reply) {
-        if (reply) {
-            console.log('user is:', reply)
-            let chatters = JSON.parse(reply);
-            let arrChatters = [];
-            for (var i = 0; i < chatters.length; i++) {
-                arrChatters.push(chatters[i]);
+const justVariable = {
+    chattersData : async () => {
+        const chatters = await redisClient.call('JSON.GET', 'chat_users', function(err, reply) {
+            let arrChatters = []
+            if (reply) {
+                arrChatters = JSON.parse(reply);
             }
             return arrChatters
-        }
-    });
+        })
+        return chatters
+    },
 
-const chatAppMessages =
-    redisClient.get('chat_app_messages', function(err, reply) {
-        if (reply) {
-            console.log('messagessss from redis', reply)
-            chat_messages = JSON.parse(reply);
-            let arrMessage = [];
-            for (var i = 0; i < chat_messages.length; i++) {
-                arrMessage.push(chat_messages[i]);
-            }
-            return arrMessage
-        }
-    });
+    chatAppMessages : async () => {
+        const msgExists = await redisClient.exists('chat_app_messages');
+        console.log('msgExists: ', msgExists)
 
-module.exports = { redisClient, chattersData, user1, chatAppMessages }
+        let arrMessage = [];
+        if(msgExists !== 0) {
+            let msgFromRedis = await redisClient.call('JSON.GET', 'chat_app_messages', function(err, reply) {
+                if (reply) {
+                    chat_messages = JSON.parse(reply);
+                    return chat_messages
+                } else {
+                    return []
+                }
+            });
+            arrMessage = msgFromRedis
+        }
+        return arrMessage
+    },
+
+    user1 : "developer",
+}
+
+module.exports = {
+    justVariable,
+    client: redisClient,
+}
