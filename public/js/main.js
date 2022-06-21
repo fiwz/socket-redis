@@ -12,6 +12,14 @@ $.get('/get_chatters', function(response) {
     })
 });
 
+$.get('/A/chats/pending', function(response) {
+    console.log('/A/chats/pending', response.data)
+    for(let pd in response.data) {
+        console.log('pdddddddd', response.data[pd])
+        $("#my-chats #pending ul").append(`<li class="list-group-item" id="${response.data[pd]}">${response.data[pd]}</li>`);
+    }
+});
+
 $('#join-chat').click(function() {
     console.log('clicked join')
 
@@ -130,13 +138,39 @@ $('#btn-login').click(function() {
     });
 });
 
+// Login as Client
+$('#btn-loginclient').click(function() {
+    var clientEmail = $.trim($('#client-email').val());
+    console.log('Client Login: ', 'email: ', clientEmail)
+
+    $.ajax({
+        url: '/login-client',
+        type: 'POST',
+        data: {
+            clientEmail: clientEmail
+        },
+        success: function(response) {
+            console.log('Login client response: ', response)
+            showLoginInfo()
+        }
+    });
+});
+
 function showLoginInfo() {
     $.get('/login-info', function(response) {
         console.log('/login-info', response)
         console.log('type of /login-info', typeof(response.data))
         console.log('length of /login-info', response.data.length)
 
-        if(response.data) {
+        if(response.data && response.data.email) {
+            $('.login-client-info ul').html("");
+            $(".login-client-info ul").append(`
+                <li>Email: ${response.data.email}</li>
+            `);
+
+            $('.login-client-info').removeClass('d-none')
+            $('.login-client-info').addClass('d-block')
+        } else {
             $('.login-info ul').html("");
             $(".login-info ul").append(`
                 <li>ID: ${response.data.id}</li>
@@ -153,7 +187,7 @@ function showLoginInfo() {
 showLoginInfo()
 
 // Logout
-$('#btn-logout').click(function() {
+$('#btn-logout, #btn-logout-client').click(function() {
     console.log('logout clicked')
 
     $.ajax({
@@ -165,9 +199,9 @@ $('#btn-logout').click(function() {
             console.log('Logout response: ', response)
 
             alert(response.message)
-            $('.login-info ul').html("");
-            $('.login-info').removeClass('d-block')
-            $('.login-info').addClass('d-none')
+            $('.login-info ul, .login-client-info ul').html("");
+            $('.login-info, .login-client-info').removeClass('d-block')
+            $('.login-info, .login-client-info').addClass('d-none')
         }
     });
 });
@@ -190,6 +224,11 @@ socket.on('count_chatters', function(data) {
         console.log('member', member)
         $("#chat-member ul").append(`<li>${member}</li>`);
     })
+});
+
+socket.on("company:A:dept:general:pending_chats", (data) => {
+    console.log('hi i am from emit pending')
+    $("#my-chats #pending ul").append(`<li class="list-group-item id="${data}">${data}</li>`);
 });
 
 })

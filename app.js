@@ -17,6 +17,7 @@ let RedisStore = require("connect-redis")(session);
 const redis = require('./config/redis');
 const redisF = redis.justVariable
 const redisClient = redis.client
+const sub = redis.sub
 
 // Express Middleware for serving static
 // files and parsing the request body
@@ -184,11 +185,12 @@ app.post('/login', async function(req, res) {
     if (username !== "developer" && username !== "developer2") {
         return responseData(res, 403, { "message": "User Not Found", "data": null })
     } else {
-        const data = await redisClient.hgetall('user:100');
+        const savedUserId = await redisClient.get(`username:${username}`);
+        const data = await redisClient.hgetall(savedUserId)
         if (await bcrypt.compare(password, data.password)) {
-            let user = { id: 100, username }
+            let user = { id: savedUserId.split(":").pop(), username }
             req.session.user = user;
-            console.log('after login ', '===========', req.session)
+            console.log('after login ', '===========', savedUserId.split(":"), req.session)
 
             return responseData(res, 200, user)
         }
@@ -198,17 +200,159 @@ app.post('/login', async function(req, res) {
     return responseMessage(res, 400, "Invalid username or password" )
 });
 
+// API - Login Client
+app.post('/login-client', async function(req, res) {
+    const { clientEmail } = req.body;
+    let user = { email: clientEmail }
+    req.session.user = user;
+    await redisClient.sadd("company:A:online_clients", user.email);
+
+    /**
+     *
+     // generate chat ID
+     CHT1
+
+     // create room (JSON)
+     company:A:room:CHT1
+
+     // insert ke list pending chat (SADD set)
+     company:A:dept:general:pending_chats
+        // (BE) publish & broadcast emit "company:A:dept:general:pending_chats"
+
+     // diambil oleh agent (SMOVE move to on going set)
+     company:A:dept:general:ongoing_chats
+     > code:
+     (FE) socket.emit "join.room" (masuk ke room yg on going)
+     (BE) socket.on "join.room" (join room socket)
+
+
+     // chat dari client muncul di list on going milik agent (SADD set)
+     user:100:rooms
+     > SMEMBERS user:100:rooms
+     > CHT1
+     atau ini
+     > company:A:room:CHT1
+
+     // menampilkan chat detail
+     > JSON.GET company:A:dept:general:room:CHT1
+
+     // join room/load
+     > code:
+     (FE) socket.emit "join.room" (masuk ke room yg on going)
+     (BE) socket.on "join.room" (join room socket)
+
+     // agent mengirimkan chat
+     > code:
+     (FE) socket.emit message => messagenya apa & bawa id room/id chat
+     (BE) publish & broadcast emit "show.room"
+          publish & emit "message" ke room "room id/chat id"
+
+            publish("show.room", msg);
+            socket.broadcast.emit(`show.room`, msg);
+            await zadd(roomKey, "" + message.date, messageString);
+            publish("message", message);
+            io.to(roomKey).emit("message", message);
+    (FE) listen (socket.on)
+        socket.on "show.room"
+        socket.on "message"
+
+     // ditransfer (nanti)
+     // disolve/history (nanti)
+
+     */
+
+    // create room
+    await redisClient.call('JSON.SET', 'company:A:room:CHT1', '.', JSON.stringify({ "from": `${user.email}`, "message": "hello from client" }))
+    await redisClient.sadd('company:A:dept:general:pending_chats', 'company:A:room:CHT1')
+
+    // emit
+    mainNamespace.emit('company:A:dept:general:pending_chats', 'company:A:room:CHT1')
+
+    return responseData(res, 200, user)
+});
+
 // API - Login Info
 app.get('/login-info', auth, async function(req, res) {
     console.log('login info called')
     return responseData(res, 200, req.session.user)
 });
 
-app.post("/logout", auth, (req, res) => {
+app.get(`/users/online/:companyName`, auth, async (req, res) => {
+    const companyName = 'A'
+    const onlineIds = await redisClient.smembers(`company:${companyName}:online_users`);
+    const users = {};
+    for (let onlineId of onlineIds) {
+      const user = await redisClient.hgetall(`user:${onlineId}`);
+      users[onlineId] = {
+        id: onlineId,
+        username: user.username,
+        company_name: user.company_name,
+        online: true,
+      };
+    }
+    return responseData(res, 200, users)
+});
+
+app.get(`/clients/online/:companyName`, auth, async (req, res) => {
+    const companyName = 'A'
+    const onlineIds = await redisClient.smembers(`company:${companyName}:online_clients`);
+    let users = {};
+    for (let onlineId in onlineIds) {
+        users[onlineId] = onlineIds[onlineId]
+    }
+    return responseData(res, 200, users)
+});
+
+// API - Logout
+app.post("/logout", auth, async (req, res) => {
+    if (req.session.user !== undefined) {
+        const userId = req.session.user.id;
+        if(userId) {
+            await redisClient.srem("company:A:online_users", userId);
+            console.log('user is logout: ', userId)
+        } else {
+            await redisClient.srem("company:A:online_clients", req.session.user.email);
+            console.log('client is logout: ', req.session.user.email)
+        }
+    }
     req.session.destroy(() => {});
     return responseMessage(res, 200, "Logout Success" )
 });
 
+// API - Pending Messages
+app.get("/:companyName/chats/pending", auth, async (req, res) => {
+    const companyName = 'A'
+    const userDept = 'general'
+    const pendingList = await redisClient.smembers(`company:${companyName}:dept:${userDept}:pending_chats`);
+    let pendingChats = {};
+    pendingList.forEach((pd, idx) => {
+        console.log('pd:', pd, idx)
+        pendingChats[idx] = pd
+    })
+
+    console.log('pending chats', pendingList, typeof(pendingList))
+    return responseData(res, 200, pendingChats)
+});
+
+// PubSub
+app.get('/publisher', (req, res) => {
+    const user = {
+        id : "123456",
+        name : "Davis"
+    }
+
+    redisClient.publish("user-notify",JSON.stringify(user))
+    return responseMessage(res, 200, "Publish Example Executed" )
+})
+
+sub.on("message",(channel, message) => {
+    console.log("Received data :"+message);
+})
+sub.subscribe("user-notify");
+app.get('/subscriber',(req,res) => {
+    // res.send("Subscriber One");
+    return responseMessage(res, 200, "Subscriber One" )
+})
 
 /**
  * Socket
