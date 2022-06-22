@@ -41,9 +41,23 @@ redisClient.once('ready', async function() {
     redisClient.call('JSON.SET', 'devtesting_json', '.', JSON.stringify({ "from": "developer", "message": "helloooo" })) // test reJSON
 
     redisClient.set('username:developer', 'user:100')
-    redisClient.hmset('user:100', ["username", "developer", "password", await bcrypt.hash("password123", 10), "company_name", "A"])
+    redisClient.hmset('user:100',
+        [
+            "username", "developer",
+            "password", await bcrypt.hash("password123", 10),
+            "company_name", "A",
+            "department", "general"
+        ]
+    )
     redisClient.set('username:developer2', 'user:101')
-    redisClient.hmset('user:101', ["username", "developer2", "password", await bcrypt.hash("password123", 10), "company_name", "A"])
+    redisClient.hmset('user:101',
+        [
+            "username", "developer2",
+            "password", await bcrypt.hash("password123", 10),
+            "company_name", "A",
+            "department", "IT"
+        ]
+    )
 });
 
 const justVariable = {

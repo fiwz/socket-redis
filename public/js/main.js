@@ -1,6 +1,7 @@
 $(() => {
 const socket = io('http://localhost:4000');
 // const socket = io('http://localhost:4000/agents');
+// const socket = io.connect('http://localhost:4000', {query: 'name=something'}, {auth: "{'foo':'bar'}" });
 
 $.get('/get_chatters', function(response) {
     console.log('/get_chatters', response)
@@ -243,6 +244,10 @@ socket.on("company:A:dept:general:pending_chats", (data) => {
 
 socket.on("message", (message) => {
     console.log("msg result:", message)
+});
+
+socket.on("chat.pending", (message) => {
+    console.log("chat pending result:", message)
 });
 
 })

@@ -10,6 +10,7 @@ const PORT = process.env.PORT || 4000;
 require('dotenv').config(); // env
 const fs = require('fs');
 const bcrypt = require("bcrypt");
+const { generateChatId } = require("./utils/helpers")
 const session = require("express-session");
 let RedisStore = require("connect-redis")(session);
 
@@ -64,6 +65,44 @@ io.use((socket, next) => {
 // Create Server
 const server = http.listen(PORT, () => console.log(`Server running at port: ${PORT}`));
 console.info('Current Env: ', process.env.APP_ENV)
+
+const publish = (type, data) => {
+    const outgoing = {
+        // serverId: SERVER_ID,
+        type,
+        data,
+    };
+    redisClient.publish("MESSAGES", JSON.stringify(outgoing));
+};
+
+const initPubSub = () => {
+    console.log('initPubSub')
+    /** We don't use channels here, since the contained message contains all the necessary data. */
+    sub.on("message", (_, message) => {
+        console.log('sub message', message)
+        /**
+         * @type {{
+         *   type: string;
+         *   data: object;
+         * }}
+         **/
+        const { type, data } = JSON.parse(message);
+        /** We don't handle the pub/sub messages if the server is the same */
+        // if (serverId === SERVER_ID) {
+        //   return;
+        // }
+        console.log('tipe', type, data)
+        mainNamespace.emit(type, data);
+
+        // console.log('tipenya', type)
+        // if(type === 'message') {
+        // console.log(data.roomId, data)
+        // io.to(`room:${data.roomId}`).emit(type, data);
+        // }
+    });
+    sub.subscribe("MESSAGES");
+};
+initPubSub()
 
 // Store people in chatroom
 var chatters = [];
@@ -187,8 +226,16 @@ app.post('/login', async function(req, res) {
         const savedUserId = await redisClient.get(`username:${username}`);
         const data = await redisClient.hgetall(savedUserId)
         if (await bcrypt.compare(password, data.password)) {
-            let user = { id: savedUserId.split(":").pop(), username }
+            let user = {
+                id: savedUserId.split(":").pop(),
+                username,
+                company_name: data.company_name,
+                department: data.department
+            }
             req.session.user = user;
+
+            // insert user ke company department
+            await redisClient.sadd(`company:${user.company_name}:dept:${user.department}:users`, user.id)
 
             return responseData(res, 200, user)
         }
@@ -204,67 +251,25 @@ app.post('/login-client', async function(req, res) {
     req.session.user = user;
     await redisClient.sadd("company:A:online_clients", user.email);
 
-    /**
-     *
-     // generate chat ID
-     CHT1
-
-     // create room (JSON)
-     company:A:room:CHT1
-
-     // insert ke list pending chat (SADD set)
-     company:A:dept:general:pending_chats
-        // (BE) publish & broadcast emit "company:A:dept:general:pending_chats"
-
-     // diambil oleh agent (SMOVE move to on going set)
-     company:A:dept:general:ongoing_chats
-     > code:
-     (FE) socket.emit "join.room" (masuk ke room yg on going)
-     (BE) socket.on "join.room" (join room socket)
-
-
-     // chat dari client muncul di list on going milik agent (SADD set)
-     user:100:rooms
-     > SMEMBERS user:100:rooms
-     > CHT1
-     atau ini
-     > company:A:room:CHT1
-
-     // menampilkan chat detail
-     > JSON.GET company:A:dept:general:room:CHT1
-
-     // join room/load
-     > code:
-     (FE) socket.emit "join.room" (masuk ke room yg on going)
-     (BE) socket.on "join.room" (join room socket)
-
-     // agent mengirimkan chat
-     > code:
-     (FE) socket.emit message => messagenya apa & bawa id room/id chat
-     (BE) publish & broadcast emit "show.room"
-          publish & emit "message" ke room "room id/chat id"
-
-            publish("show.room", msg);
-            socket.broadcast.emit(`show.room`, msg);
-            await zadd(roomKey, "" + message.date, messageString);
-            publish("message", message);
-            io.to(roomKey).emit("message", message);
-    (FE) listen (socket.on)
-        socket.on "show.room"
-        socket.on "message"
-
-     // ditransfer (nanti)
-     // disolve/history (nanti)
-
-     */
+    let chatId = generateChatId() // generate chatId
 
     // create room
-    await redisClient.call('JSON.SET', 'company:A:room:CHT1', '.', JSON.stringify({ "from": `${user.email}`, "message": "hello from client" }))
-    await redisClient.sadd('company:A:dept:general:pending_chats', 'company:A:room:CHT1')
-    await redisClient.set(`client:${user.email}:rooms`, 'company:A:room:CHT1')
+    await redisClient.call('JSON.SET', `company:A:room:${chatId}`, '.', JSON.stringify({ "from": `${user.email}`, "message": "hello from client" }))
+    await redisClient.sadd('company:A:dept:general:pending_chats', `company:A:room:${chatId}`)
+    await redisClient.set(`client:${user.email}:rooms`, `company:A:room:${chatId}`)
 
-    // emit
-    mainNamespace.emit('company:A:dept:general:pending_chats', 'company:A:room:CHT1')
+    // emit ke room: pending chat per department
+    mainNamespace
+        .to(`company:A:dept:general:pending_chat_room`)
+        .emit("chat.pending", JSON.stringify({
+            roomId: `company:A:room:${chatId}`,
+            chatId: chatId,
+            from: `${user.email}`,
+            message: "hello from client"
+        }))
+
+    // join client ke room
+    // code...
 
     return responseData(res, 200, user)
 });
@@ -331,30 +336,25 @@ app.get("/:companyName/chats/pending", auth, async (req, res) => {
 
 // API - send message example
 app.get('/send-message', async (req, res) => {
-    mainNamespace.to('company:A:room:CHT1')
-    .emit("message", JSON.stringify({'from': 'server', 'message': 'hello, this is testing emit to room'}))
-    return responseMessage(res, 200, "Send Example Msg Executed" )
-})
-
-
-// PubSub
-app.get('/publisher', (req, res) => {
-    const user = {
-        id : "123456",
-        name : "Davis"
+    const currentClient = req.session.user
+    if(currentClient) {
+        mainNamespace
+            .to(`company:A:dept:general:pending_chat_room`)
+            .emit("chat.pending", JSON.stringify({
+                // roomId: `company:A:room:${chatId}`,
+                // chatId: chatId,
+                from: `${currentClient.email}`,
+                message: "There is Pending Msg"
+            }))
+        return responseData(res, 200, currentClient )
+    } else {
+        return responseMessage(res, 403, "Client is not logged in" )
     }
-
-    redisClient.publish("user-notify",JSON.stringify(user))
-    return responseMessage(res, 200, "Publish Example Executed" )
 })
 
+// Subscribe
 sub.on("message",(channel, message) => {
     console.log("Received data :"+message);
-})
-sub.subscribe("user-notify");
-app.get('/subscriber',(req,res) => {
-    // res.send("Subscriber One");
-    return responseMessage(res, 200, "Subscriber One" )
 })
 
 /**
