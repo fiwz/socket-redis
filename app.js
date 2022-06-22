@@ -165,7 +165,6 @@ app.get('/get_messages', async function(req, res) {
 app.get('/get_chatters', async function(req, res) {
     redisF.chattersData()
     .then((response) => {
-        console.log('chatters: ', response)
         let userData = []
         if(userData) {
             userData = JSON.parse(response);
@@ -190,13 +189,11 @@ app.post('/login', async function(req, res) {
         if (await bcrypt.compare(password, data.password)) {
             let user = { id: savedUserId.split(":").pop(), username }
             req.session.user = user;
-            console.log('after login ', '===========', savedUserId.split(":"), req.session)
 
             return responseData(res, 200, user)
         }
     }
 
-    console.log('from server: /login result: ', username, password)
     return responseMessage(res, 400, "Invalid username or password" )
 });
 
@@ -264,6 +261,7 @@ app.post('/login-client', async function(req, res) {
     // create room
     await redisClient.call('JSON.SET', 'company:A:room:CHT1', '.', JSON.stringify({ "from": `${user.email}`, "message": "hello from client" }))
     await redisClient.sadd('company:A:dept:general:pending_chats', 'company:A:room:CHT1')
+    await redisClient.set(`client:${user.email}:rooms`, 'company:A:room:CHT1')
 
     // emit
     mainNamespace.emit('company:A:dept:general:pending_chats', 'company:A:room:CHT1')
@@ -273,7 +271,6 @@ app.post('/login-client', async function(req, res) {
 
 // API - Login Info
 app.get('/login-info', auth, async function(req, res) {
-    console.log('login info called')
     return responseData(res, 200, req.session.user)
 });
 
@@ -309,10 +306,8 @@ app.post("/logout", auth, async (req, res) => {
         const userId = req.session.user.id;
         if(userId) {
             await redisClient.srem("company:A:online_users", userId);
-            console.log('user is logout: ', userId)
         } else {
             await redisClient.srem("company:A:online_clients", req.session.user.email);
-            console.log('client is logout: ', req.session.user.email)
         }
     }
     req.session.destroy(() => {});
@@ -333,6 +328,14 @@ app.get("/:companyName/chats/pending", auth, async (req, res) => {
     console.log('pending chats', pendingList, typeof(pendingList))
     return responseData(res, 200, pendingChats)
 });
+
+// API - send message example
+app.get('/send-message', async (req, res) => {
+    mainNamespace.to('company:A:room:CHT1')
+    .emit("message", JSON.stringify({'from': 'server', 'message': 'hello, this is testing emit to room'}))
+    return responseMessage(res, 200, "Send Example Msg Executed" )
+})
+
 
 // PubSub
 app.get('/publisher', (req, res) => {

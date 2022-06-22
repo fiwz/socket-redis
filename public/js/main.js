@@ -16,7 +16,7 @@ $.get('/A/chats/pending', function(response) {
     console.log('/A/chats/pending', response.data)
     for(let pd in response.data) {
         console.log('pdddddddd', response.data[pd])
-        $("#my-chats #pending ul").append(`<li class="list-group-item" id="${response.data[pd]}">${response.data[pd]}</li>`);
+        $("#my-chats #pending ul").append(`<li class="list-group-item" id="${response.data[pd]}" >${response.data[pd]}</li>`);
     }
 });
 
@@ -206,6 +206,16 @@ $('#btn-logout, #btn-logout-client').click(function() {
     });
 });
 
+// Join Room
+$(document).on('click', '#my-chats #pending ul li', function(e) {
+    let elementId = $(this).attr('id')
+    let room = elementId
+    if(elementId.search(':') != -1) {
+        let roomArr = elementId.split(':')
+        room = roomArr.pop()
+    }
+    socket.emit('room.join', room)
+});
 
 /** Socket */
 socket.on('send', function(data) {
@@ -228,7 +238,11 @@ socket.on('count_chatters', function(data) {
 
 socket.on("company:A:dept:general:pending_chats", (data) => {
     console.log('hi i am from emit pending')
-    $("#my-chats #pending ul").append(`<li class="list-group-item id="${data}">${data}</li>`);
+    $("#my-chats #pending ul").append(`<li class="list-group-item id="${data}" >${data}</li>`);
+});
+
+socket.on("message", (message) => {
+    console.log("msg result:", message)
 });
 
 })
