@@ -10,7 +10,7 @@ const PORT = process.env.PORT || 4000;
 require('dotenv').config(); // env
 const fs = require('fs');
 const bcrypt = require("bcrypt");
-const { generateChatId } = require("./utils/helpers")
+const { generateChatId, slugify, createUserAuth } = require("./utils/helpers");
 const session = require("express-session");
 let RedisStore = require("connect-redis")(session);
 
@@ -219,29 +219,21 @@ app.get('/get_chatters', async function(req, res) {
 
 // API - Login
 app.post('/login', async function(req, res) {
-    const { username, password } = req.body;
-    if (username !== "developer" && username !== "developer2") {
-        return responseData(res, 403, { "message": "User Not Found", "data": null })
-    } else {
-        const savedUserId = await redisClient.get(`username:${username}`);
-        const data = await redisClient.hgetall(savedUserId)
-        if (await bcrypt.compare(password, data.password)) {
-            let user = {
-                id: savedUserId.split(":").pop(),
-                username,
-                company_name: data.company_name,
-                department: data.department
-            }
-            req.session.user = user;
-
-            // insert user ke company department
-            await redisClient.sadd(`company:${user.company_name}:dept:${user.department}:users`, user.id)
-
-            return responseData(res, 200, user)
-        }
+    const data = req.body
+    const savedData = await createUserAuth(data)
+    let user = {
+        id: savedData.agent_id,
+        email: savedData.email_agent,
+        name: savedData.name_agent,
+        company_name: savedData.company_name,
+        department_name: savedData.department_name
     }
+    req.session.user = user;
 
-    return responseMessage(res, 400, "Invalid username or password" )
+    // join agent/user to pending room
+    // code...
+
+    return responseMessage(res, 200, "OK" )
 });
 
 // API - Login Client
@@ -339,7 +331,7 @@ app.get('/send-message', async (req, res) => {
     const currentClient = req.session.user
     if(currentClient) {
         mainNamespace
-            .to(`company:A:dept:general:pending_chat_room`)
+            .to(`company:gina-company:dept:developer:pending_chat_room`)
             .emit("chat.pending", JSON.stringify({
                 // roomId: `company:A:room:${chatId}`,
                 // chatId: chatId,

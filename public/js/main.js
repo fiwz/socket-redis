@@ -125,18 +125,63 @@ $('#btn-login').click(function() {
 
     console.log('User Login: ', 'username: ', username, 'password: ', password)
 
+    // emit socket
+    let dataAuth = {
+        agent_id: "49",
+        avatar: "http://localhost:8000/storage/assets/images/uploads/gravatar/agent-qwords-49.png",
+        company_name: "Gina Company",
+        department_name: "Developer",
+        email_agent: "agent@qwords.co.id",
+        id_company: "10",
+        id_department: "11",
+        last_action: null,
+        module: "is_dashboard",
+        name_agent: "Agent Qwords",
+        permission_name: "Agent",
+        phone_agent: "null",
+        roles_id: "4",
+        status: "online",
+        token: "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9.eyJhdWQiOiIxIiwianRpIjoiYjRjMGRkZTBlYmRlNTczMzQ4MzU0MmNlYmQ0ZjQwOTk1YWZlOGFmZjExNTc5ZjZjZmZhODkzYTJlOGQwYjE0OThkNjBlYmM4YmU0OWRiZDciLCJpYXQiOjE2NTU5NjAyODYuOTMyMjQ2LCJuYmYiOjE2NTU5NjAyODYuOTMyMjUsImV4cCI6MTY4NzQ5NjI4Ni45MjMxOTYsInN1YiI6IjQ5Iiwic2NvcGVzIjpbXX0.QMJreS6iCrX3unIbMEw3evhyRQrJjFvfi2a-QD9ePsunDoaV0ZkKzCBizSuKAgMSbGVgoeLzsAbAcJYOx4DfTKIXP0nd-fFYH4vqDpXeCHSxX23oG9_-zMDKpvWx-AeOgm8ASV9lTG2vwIrPaAA1ygfy7OaW5-eu8PtckbDMoAyWwKupAPKXlsJzFyEO_ZU3kvj8Pss9F2MkrjZZjE8y1BmcVuhtezoiD45vZTdbbdiFet1YX3Q-JeyhXHrSaeX-MMsqKHW4B_PsEQF5UaCWbnL8IjXF2xxOtLWw3_CwdXkrZtwoev1nuNwEnYpTkCtEunIsxL6aofE32WHgQaxHk23N_Czqsd91SCK4iAa05pmWLKsYEO7m-MgAbEaIj7hiIXb_EqZTxj5ezqOoNbh-9toJUPUO0eZvNzeJTa49Fdbirr1RE6PfGnY39hvETIdgQVeBKpgC3YYC0wHiP77E2FB19_SqW5CRNTTcxq-M1TFSAFL4Jh_eEaqKryXHhdc2zewAoRT7quz29HqJUygNqzhdqxRWhOgIqqE6FLZFU758SqhMeEHgHSqyQpZE2iB_pAcBvOFcNzUEPMoobMsRVf2p6Bi_ewHLSAYjAeeBFdUUC5keXG2CBSpKEEKAxigeMR9GAlz7W7be-8J2CArlFoi08RSfQWNggPjFVHNEets",
+        type_user: "agent",
+        uuid: "5aeb48dd-5e53-11ec-93e9-e0d55e1b6010"
+    }
+
+    let dataAuth2 = {
+        agent_id: "75",
+        avatar: "http://localhost:8000/storage/assets/images/uploads/gravatar/agent-finance-1-75.png",
+        company_name: "Gina Company",
+        department_name: "Finance",
+        email_agent: "agentfinance1@qwords.co.id",
+        id_company: "10",
+        id_department: "30",
+        last_action: null,
+        module: "is_dashboard",
+        name_agent: "Agent Finance 1",
+        permission_name: "Agent",
+        phone_agent: "null",
+        roles_id: "4",
+        status: "online",
+        token: "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9.eyJhdWQiOiIxIiwianRpIjoiZWYwMjVjZWViZmYwMmY2Mzc2YmMwYjg1NmUwMDEzYWFmZDNmZTI3MGRmYWIyZGQxNTFhNTYxNTRjNjcwYmVhYTlkNzhjNGZhMzkzOTI2YzYiLCJpYXQiOjE2NTU5NzQ5MzcuMTYwMjczLCJuYmYiOjE2NTU5NzQ5MzcuMTYwMjgzLCJleHAiOjE2ODc1MTA5MzcuMTQ0OTgxLCJzdWIiOiI3NSIsInNjb3BlcyI6W119.WYaFfA1Kh-3vYN8Ley4Fpcw2W3XgbcUWDAqajrs8Qi6lMRWiTMHoYoEpIt5EMd-B18_5R-hkEzUCN_aYHL4wwx1irZY-8jLG3ltYJ6PcdCayjizK3Ttu46pURT4wQSEO7554BLbOlmOw4d8xFvyu3FTYG4W4iQgr38KhINYTiQfl8K95k5mVOZejgrxNtz8eeeEHLBq17DNroK1Z0miDZe4y5BOlDqWIDoRbsEp3ISL9TcHUwYhZdHlzp98zg8RNPK2RvgdYOtq8rNvCvTCZ1Jo_JNURiRPUoQfby6V1Qg5KvmHE3OyeLFLfH0_aI526mcGIAgLbUYnxhY9gcEu04yOoAEyrqXqqNwEiv5FtzxSR5fuNnj2EUHbB_bRkQ7Eu704DWstzuNxdccS55gKpVFF5x1tw2FSes1fnBg08w1lmAdP7mUuo0Mt7MNvf5dpVjz7IzIxQCxxZ-rI5boMA_hYtfFZmpuBop2t2AmBjlGlwaJ2XZnrBpP8DWbstgjvlLJXmKOdxax6rkZUqJSszm4W5biewCHwwuVDLE3z4kB87szCRBk_3f7ip4pVctPQ0rDny97NaOUbpE5clSi68rPqgrD9PVAU28Ho7jsLEKmUG3sEfS9cT5ojvWmiiz2ajxC6GK7AMGuyXMouEDt1SNv-1e2W3Ve5hLyNTZEAYMyE",
+        type_user: "agent",
+        uuid: "3353f742-6eab-11ec-a9f4-e0d55e1b6010"
+    }
+
     $.ajax({
         url: '/login',
         type: 'POST',
-        data: {
-            username: username,
-            password: password
-        },
+        // data: {
+        //     username: username,
+        //     password: password
+        // },
+        data: dataAuth,
         success: function(response) {
             console.log('Login response: ', response)
             showLoginInfo()
         }
     });
+
+    // socket.emit('user.makeAuth', dataAuth);
+
 });
 
 // Login as Client
@@ -163,7 +208,7 @@ function showLoginInfo() {
         console.log('type of /login-info', typeof(response.data))
         console.log('length of /login-info', response.data.length)
 
-        if(response.data && response.data.email) {
+        if(response.data && !response.data.id) {
             $('.login-client-info ul').html("");
             $(".login-client-info ul").append(`
                 <li>Email: ${response.data.email}</li>
@@ -175,7 +220,9 @@ function showLoginInfo() {
             $('.login-info ul').html("");
             $(".login-info ul").append(`
                 <li>ID: ${response.data.id}</li>
-                <li>Username: ${response.data.username}</li>
+                <li>Email: ${response.data.email}</li>
+                <li>Company Name: ${response.data.company_name}</li>
+                <li>Dept: ${response.data.department_name}</li>
             `);
 
             $('.login-info').removeClass('d-none')
@@ -237,10 +284,10 @@ socket.on('count_chatters', function(data) {
     })
 });
 
-socket.on("company:A:dept:general:pending_chats", (data) => {
-    console.log('hi i am from emit pending')
-    $("#my-chats #pending ul").append(`<li class="list-group-item id="${data}" >${data}</li>`);
-});
+// socket.on("company:A:dept:general:pending_chats", (data) => {
+//     console.log('hi i am from emit pending')
+//     $("#my-chats #pending ul").append(`<li class="list-group-item id="${data}" >${data}</li>`);
+// });
 
 socket.on("message", (message) => {
     console.log("msg result:", message)
@@ -248,6 +295,7 @@ socket.on("message", (message) => {
 
 socket.on("chat.pending", (message) => {
     console.log("chat pending result:", message)
+    $("#my-chats #pending ul").append(`<li class="list-group-item id="$//{message}" >${message}</li>`);
 });
 
 })

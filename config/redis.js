@@ -46,7 +46,7 @@ redisClient.once('ready', async function() {
             "username", "developer",
             "password", await bcrypt.hash("password123", 10),
             "company_name", "A",
-            "department", "general"
+            "department_name", "general"
         ]
     )
     redisClient.set('username:developer2', 'user:101')
@@ -55,7 +55,7 @@ redisClient.once('ready', async function() {
             "username", "developer2",
             "password", await bcrypt.hash("password123", 10),
             "company_name", "A",
-            "department", "IT"
+            "department_name", "IT"
         ]
     )
 });
