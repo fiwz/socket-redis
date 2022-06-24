@@ -30,8 +30,13 @@
                 <div class="wrap-login py-4 px-5 bg-light border rounded rounded-4 my-3">
                     <p class="mb-3 fs-2 fw-normal">Login as Client</p>
 
-                    <input id="client-email" name="client_email" class="mb-3 form-control" placeholder="Client Email" />
-                    <input type="button" id="btn-loginclient" class="btn btn-success" value="Login">
+                    <input id="client-name" name="client_name" class="mb-3 form-control" placeholder="Client Name" value="Just Client" />
+                    <input id="client-email" name="client_email" class="mb-3 form-control" placeholder="Client Email" value="justclient@mailinator.com" />
+                    <input id="company-name" name="company_name" class="mb-3 form-control" placeholder="Company Name" value="gina-company" />
+                    <input id="department-name" name="department_name" class="mb-3 form-control" placeholder="Department Name" value="developer" />
+                    <input id="topic-name" name="topic_name" class="mb-3 form-control" placeholder="Topic Name" value="instalasi" />
+                    <input id="message-content" name="message_content" class="mb-3 form-control" placeholder="Message" value="halo min" />
+                    <input type="button" id="btn-loginclient" class="btn btn-success" value="Send Message">
 
                     <div class="login-client-info mb-1 d-none">
                         <div class="title-login text-capitalize mt-2 font-weight-bold">my login info</div>
@@ -45,15 +50,31 @@
                 <div class="wrap-login py-4 px-5 bg-light border rounded rounded-4 my-3" id="my-chats">
                     <p class="mb-3 fs-2 fw-normal">My Chats</p>
                     <div class="row">
-                        <div class="col-6" id="pending">
-                            <ul class="list-group">
-                                <li class="list-group-item">First item</li>
-                                <li class="list-group-item">Second item</li>
-                                <li class="list-group-item">Third item</li>
-                            </ul>
+                        <div class="col-6">
+                            <div id="pending">
+                                <div class="mb-3">Pending Chat</div>
+                                <ul class="list-group">
+                                    <li class="list-group-item">First item</li>
+                                    <li class="list-group-item">Second item</li>
+                                    <li class="list-group-item">Third item</li>
+                                </ul>
+                            </div>
+
+                            <div id="ongoing">
+                                <div class="mt-4 mb-3">On Going Chat</div>
+                                <ul class="list-group">
+                                    <li class="list-group-item">First item</li>
+                                    <li class="list-group-item">Second item</li>
+                                    <li class="list-group-item">Third item</li>
+                                </ul>
+                            </div>
+
                         </div>
                         <div class="col-6">
+                            <div class="mb-3">Fecth Message</div>
                             <div id="fetch-message"></div>
+                            <input id="message-reply" name="message_reply" class="mb-3 form-control" placeholder="Reply Message" />
+                            <input type="button" id="btn-send-message" class="btn btn-success" value="Send Message">
                         </div>
                     </div>
                 </div>

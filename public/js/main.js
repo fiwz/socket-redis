@@ -184,20 +184,30 @@ $('#btn-login').click(function() {
 
 });
 
-// Login as Client
+// Login as Client and Send Message
 $('#btn-loginclient').click(function() {
-    var clientEmail = $.trim($('#client-email').val());
-    console.log('Client Login: ', 'email: ', clientEmail)
+    // var clientEmail = $.trim($('#client-email').val());
+    // console.log('Client Login: ', 'email: ', clientEmail)
+
+    const allData = {
+        name: $.trim($('#client-name').val()),
+        email: $.trim($('#client-email').val()),
+        company_name: $.trim($('#company-name').val()),
+        department_name: $.trim($('#department-name').val()),
+        topic_name: $.trim($('#topic-name').val()),
+        message: $.trim($('#message-content').val())
+    }
 
     $.ajax({
         url: '/login-client',
         type: 'POST',
-        data: {
-            clientEmail: clientEmail
-        },
+        data: allData,
         success: function(response) {
             console.log('Login client response: ', response)
             showLoginInfo()
+
+            // emit after success
+            socket.emit('chat.new', allData)
         }
     });
 });
@@ -284,10 +294,6 @@ socket.on('count_chatters', function(data) {
     })
 });
 
-// socket.on("company:A:dept:general:pending_chats", (data) => {
-//     console.log('hi i am from emit pending')
-//     $("#my-chats #pending ul").append(`<li class="list-group-item id="${data}" >${data}</li>`);
-// });
 
 socket.on("message", (message) => {
     console.log("msg result:", message)
@@ -297,5 +303,33 @@ socket.on("chat.pending", (message) => {
     console.log("chat pending result:", message)
     $("#my-chats #pending ul").append(`<li class="list-group-item id="$//{message}" >${message}</li>`);
 });
+
+socket.on("chat.onrefresh", (message) => {
+    console.log("chat chatlist on refresh result:", message)
+
+    $("#my-chats #pending ul").html('')
+    if(message.pending) {
+        message.pending.forEach((chat, idx) => {
+            $("#my-chats #pending ul").append(`<li class="list-group-item id="${chat.chat_id}" >${chat.chat_id}</li>`);
+        })
+    }
+});
+
+socket.on("client.chat.onrefresh", (message) => {
+    console.log("CLIENT chat on refresh result:", message)
+
+    $("#fetch-message").html('')
+    if(message.chat_reply) {
+        message.chat_reply.forEach((chat, idx) => {
+            $("#fetch-message").append(`
+                <div style='margin-bottom: 8px;'>
+                    <p style='margin: 0px;'>${chat.from}</p>
+                    <p style='margin: 0px;'>${chat.message}</p>
+                    <small>${chat.formatted_date}</small>
+                </div
+            `);
+        })
+    }
+})
 
 })

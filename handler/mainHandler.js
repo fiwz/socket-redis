@@ -6,7 +6,9 @@ const sub = redis.sub
 
 const _ = require("lodash")
 const {
-    getAllChatList
+    getAllChatList,
+    clientJoinRoom,
+    getClientChatList
 } = require("../utils/helpers");
 
 module.exports = async (io, socket) => {
@@ -36,19 +38,16 @@ module.exports = async (io, socket) => {
             // get on going chat
             // get bubble chat per chat ID
             // emit dataOnRefresh
-            console.log('my chat list:', await getAllChatList(socket))
+            const myChatList = await getAllChatList(socket)
+            socket.emit('chat.onrefresh', myChatList)
         } else {
-            await redisClient.sadd("company:A:online_clients", socket.request.session.user.email);
-            console.log(`Client is connected: ${socket.request.session.user.email}`)
-
-            // rejoin room
-            let clientRoomKey = `client:${socket.request.session.user.email}:rooms`
-            let clientRoomVal = await redisClient.get(clientRoomKey)
-            socket.join(clientRoomVal)
-            console.log('client joined: ', clientRoomVal)
+            // join room
+            clientJoinRoom(socket)
 
             // on refresh
             // get bubble chat
+            const clientChatList = await getClientChatList(socket)
+            socket.emit('client.chat.onrefresh', clientChatList)
         }
     }
 
@@ -70,11 +69,13 @@ module.exports = async (io, socket) => {
         }
     });
 
-    socket.on('new_chat', (req) => {
-        // proses save db dll
+    // Client Join Room
+    socket.on('chat.new', async (req=null) => {
+        // join room
+        clientJoinRoom(socket)
 
-        // socket.join
-        // io.emit
+        // emit there is pending chat to department
+        io.emit('chat.pending', 'hey there is new pending chat!')
     })
 
     socket.on("reconnect", (attempt) => {

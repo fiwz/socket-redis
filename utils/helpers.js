@@ -5,6 +5,7 @@ const redisClient = redis.client
 const sub = redis.sub
 
 const moment = require('moment');
+const { response } = require('express');
 
 const generateChatId = (length=4) => {
     /**
@@ -20,6 +21,13 @@ const generateChatId = (length=4) => {
     const currentUnix =  moment().unix()
 
     return `Q${result+currentUnix}`
+}
+
+const getCurrentDateTime = () => {
+    let date = moment().utc().utcOffset(+7).format('YYYY-MM-DD h:mm:ss') // WIB
+    // if locale is set moment().utc().utcOffset(process.env.TIMEZONE).format('YYYY-MM-DD h:mm:ss')
+
+    return date
 }
 
 const slugify = function(str) {
@@ -40,6 +48,8 @@ const slugify = function(str) {
     return str;
 };
 
+
+// AGENT
 const createUserAuth = async (data) => {
     let arrData = []
     let newData = []
@@ -62,20 +72,75 @@ const createUserAuth = async (data) => {
     return newData
 }
 
+
+
+// CHAT DATA
 const getAllChatList = async (socket) => {
+    const user = socket.request.session.user
     let pendingList = []
+    let pendingListWithBubble = []
     let ongoingList = []
+    let searchKey = `company:${user.company_name}:dept:${user.department_name}:pending_chats`
+
+    pendingList = await redisClient.smembers(searchKey);
+    if(pendingList) {
+        for(let [idx, item] of pendingList.entries()) {
+            let bubbleExist = await redisClient.exists(item)
+            pendingListWithBubble[idx] = {
+                chat_id: item.split(':').pop(),
+                room: item,
+                chat_reply: []
+            }
+
+            if(bubbleExist) {
+                let bubbles = await redisClient.call('JSON.GET', item)
+                pendingListWithBubble[idx].chat_reply = JSON.parse(bubbles)
+            }
+        }
+    }
 
     return {
-        pending: pendingList,
-        ongoing: ongoingList,
-        mySession: socket.request.session
+        pending: pendingListWithBubble,
+        ongoing: ongoingList
     }
+}
+
+const clientJoinRoom = async (socket) => {
+    let clientRoomKey = `client:${socket.request.session.user.email}:rooms`
+    let clientRoomVal = await redisClient.get(clientRoomKey)
+    socket.join(clientRoomVal)
+    console.log('client joined: ', clientRoomVal)
+
+    return `client joined: ${clientRoomVal}`
+}
+
+const getClientChatList = async (socket) => {
+    let clientRoomKey = `client:${socket.request.session.user.email}:rooms`
+    let clientRoomVal = await redisClient.get(clientRoomKey)
+    let chatResult = {}
+
+    let bubbleExist = await redisClient.exists(clientRoomKey)
+    chatResult = {
+        chat_id: clientRoomVal.split(':').pop(),
+        room: clientRoomVal,
+        chat_reply: []
+    }
+
+    if(bubbleExist) {
+        let bubbles = await redisClient.call('JSON.GET', clientRoomVal)
+        chatResult.chat_reply = JSON.parse(bubbles)
+    }
+
+    return chatResult
 }
 
 module.exports = {
     generateChatId,
     slugify,
+
+    getCurrentDateTime,
     createUserAuth,
-    getAllChatList
+    getAllChatList,
+    clientJoinRoom,
+    getClientChatList
 }

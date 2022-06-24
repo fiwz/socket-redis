@@ -10,7 +10,12 @@ const PORT = process.env.PORT || 4000;
 require('dotenv').config(); // env
 const fs = require('fs');
 const bcrypt = require("bcrypt");
-const { generateChatId, slugify, createUserAuth } = require("./utils/helpers");
+const {
+    generateChatId,
+    slugify,
+    createUserAuth,
+    getCurrentDateTime
+} = require("./utils/helpers");
 const session = require("express-session");
 let RedisStore = require("connect-redis")(session);
 
@@ -238,27 +243,45 @@ app.post('/login', async function(req, res) {
 
 // API - Login Client
 app.post('/login-client', async function(req, res) {
-    const { clientEmail } = req.body;
-    let user = { email: clientEmail }
+    let datetime = getCurrentDateTime()
+    let user = req.body
+    let chatContent = {
+        created_at: datetime,
+        updated_at: datetime,
+        formatted_date: datetime
+    };
+
     req.session.user = user;
-    await redisClient.sadd("company:A:online_clients", user.email);
+    await redisClient.sadd(`company:${user.company_name}:online_clients`, user.email);
 
     let chatId = generateChatId() // generate chatId
+    let chatRoom = `company:${user.company_name}:room:${chatId}`
+    chatContent = {...chatContent, ...{
+        from: user.email,
+        user_name: user.name,
+        message: user.message,
+        department_name: user.department_name,
+        topic_name: user.topic_name
+    }}
+
+    let arrChatContent = [chatContent]
 
     // create room
-    await redisClient.call('JSON.SET', `company:A:room:${chatId}`, '.', JSON.stringify({ "from": `${user.email}`, "message": "hello from client" }))
-    await redisClient.sadd('company:A:dept:general:pending_chats', `company:A:room:${chatId}`)
-    await redisClient.set(`client:${user.email}:rooms`, `company:A:room:${chatId}`)
+    await redisClient.call('JSON.SET', chatRoom, '.', JSON.stringify(arrChatContent))
+    await redisClient.sadd(`company:${user.company_name}:dept:${user.department_name}:pending_chats`, chatRoom)
+    await redisClient.set(`client:${user.email}:rooms`, chatRoom)
 
     // emit ke room: pending chat per department
-    mainNamespace
-        .to(`company:A:dept:general:pending_chat_room`)
-        .emit("chat.pending", JSON.stringify({
-            roomId: `company:A:room:${chatId}`,
-            chatId: chatId,
-            from: `${user.email}`,
-            message: "hello from client"
-        }))
+    // code...
+    // dev testing
+    // mainNamespace
+    //     .to(`company:A:dept:general:pending_chat_room`)
+    //     .emit("chat.pending", JSON.stringify({
+    //         roomId: `company:A:room:${chatId}`,
+    //         chatId: chatId,
+    //         from: `${user.email}`,
+    //         message: "hello from client"
+    //     }))
 
     // join client ke room
     // code...
@@ -272,7 +295,7 @@ app.get('/login-info', auth, async function(req, res) {
 });
 
 app.get(`/users/online/:companyName`, auth, async (req, res) => {
-    const companyName = 'A'
+    const companyName = req.params.companyName
     const onlineIds = await redisClient.smembers(`company:${companyName}:online_users`);
     const users = {};
     for (let onlineId of onlineIds) {
@@ -333,8 +356,8 @@ app.get('/send-message', async (req, res) => {
         mainNamespace
             .to(`company:gina-company:dept:developer:pending_chat_room`)
             .emit("chat.pending", JSON.stringify({
-                // roomId: `company:A:room:${chatId}`,
-                // chatId: chatId,
+                roomId: `company:A:room:chatId-dummy`,
+                chatId: 'chatId-dummy',
                 from: `${currentClient.email}`,
                 message: "There is Pending Msg"
             }))
