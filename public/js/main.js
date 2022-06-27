@@ -3,6 +3,10 @@ const socket = io('http://localhost:4000');
 // const socket = io('http://localhost:4000/agents');
 // const socket = io.connect('http://localhost:4000', {query: 'name=something'}, {auth: "{'foo':'bar'}" });
 
+/**
+ * Old code but needed
+ * Do not remove
+ */
 $.get('/get_chatters', function(response) {
     console.log('/get_chatters', response)
     $('.chat-info').text("There are currently " + response.data.numberOfChatters + " people in the chat room");
@@ -117,8 +121,13 @@ $('#send-message').click(function() {
     });
 });
 
+
+/**
+ * Chatvolution V2 starts here
+ */
+
 /** Auth */
-// Login
+// Login as Agent (User)
 $('#btn-login').click(function() {
     var username = $.trim($('#uname').val());
     var password = $.trim($('#password').val());
@@ -185,6 +194,8 @@ $('#btn-login').click(function() {
 });
 
 // Login as Client and Send Message
+// API is used for stored client session
+// socket.emit 'chat.new' is for send message and join client to chat room
 $('#btn-loginclient').click(function() {
     // var clientEmail = $.trim($('#client-email').val());
     // console.log('Client Login: ', 'email: ', clientEmail)
@@ -207,7 +218,11 @@ $('#btn-loginclient').click(function() {
             showLoginInfo()
 
             // emit after success
-            socket.emit('chat.new', allData)
+            setTimeout(() => {
+                socket.emit('chat.new', allData)
+                console.log('emit chat.new after 3s')
+            }, 3000)
+
         }
     });
 });
@@ -265,17 +280,74 @@ $('#btn-logout, #btn-logout-client').click(function() {
 });
 
 // Join Room
+// Only for agent(user)
+// Ambil chat dari pending list dan memindahkannya ke on going
 $(document).on('click', '#my-chats #pending ul li', function(e) {
     let elementId = $(this).attr('id')
-    let room = elementId
+    let chatId = elementId
     if(elementId.search(':') != -1) {
         let roomArr = elementId.split(':')
-        room = roomArr.pop()
+        chatId = roomArr.pop()
     }
-    socket.emit('room.join', room)
+
+    $.get(`/chat-details/${chatId}`, function(response) {
+        console.log('================', `/chat-details/${chatId}`, response)
+
+        let message = response.data
+        $("#fetch-message").html('')
+        if(message.chat_reply) {
+            message.chat_reply.forEach((chat, idx) => {
+                $("#fetch-message").append(`
+                    <div style='margin-bottom: 8px;'>
+                        <p style='margin: 0px;'>${chat.from}</p>
+                        <p style='margin: 0px;'>${chat.message}</p>
+                        <small>${chat.formatted_date}</small>
+                    </div
+                `);
+            })
+        }
+    });
+
+    // join room if chat is in pending chat tab
+    socket.emit('room.join', chatId)
 });
 
+// On Click in List On Going
+$(document).on('click', '#my-chats #ongoing ul li', function(e) {
+    let elementId = $(this).attr('id')
+    let chatId = elementId
+    if(elementId.search(':') != -1) {
+        let roomArr = elementId.split(':')
+        chatId = roomArr.pop()
+    }
+
+    $.get(`/chat-details/${chatId}`, function(response) {
+        console.log('================', `on going /chat-details/${chatId}`, response)
+
+        let message = response.data
+        $("#fetch-message").html('')
+        if(message.chat_reply) {
+            message.chat_reply.forEach((chat, idx) => {
+                $("#fetch-message").append(`
+                    <div style='margin-bottom: 8px;'>
+                        <p style='margin: 0px;'>${chat.from}</p>
+                        <p style='margin: 0px;'>${chat.message}</p>
+                        <small>${chat.formatted_date}</small>
+                    </div
+                `);
+            })
+        }
+    });
+});
+
+
+
 /** Socket */
+
+/**
+ * Old code but needed
+ * Do not remove
+ */
 socket.on('send', function(data) {
     console.log('socket message in client', data)
     var username = data.username;
@@ -295,26 +367,52 @@ socket.on('count_chatters', function(data) {
 });
 
 
+/**
+ * Socket listening event starts here
+ */
+
+// Show Room
+// Listen if there is new message to a chat room
+// Use this for flagging unread data in list chat
+// and show bubble chat when agent is opening the same chat detail
+socket.on("show.room", (data) => {
+    console.log("show room:", data)
+});
+
+// Listen when there is message from agent/client
+// Recommend to use this for rendering bubble chat
 socket.on("message", (message) => {
     console.log("msg result:", message)
 });
 
+// Listening if there is new chat from client
 socket.on("chat.pending", (message) => {
-    console.log("chat pending result:", message)
-    $("#my-chats #pending ul").append(`<li class="list-group-item id="$//{message}" >${message}</li>`);
+    let chatId = message.chat_id
+    $("#my-chats #pending ul").append(`<li class="list-group-item" id="${chatId}" >${chatId}</li>`);
 });
 
+// Get all chat data in dashboard agent
+// (Try to refresh your browser!)
 socket.on("chat.onrefresh", (message) => {
     console.log("chat chatlist on refresh result:", message)
 
     $("#my-chats #pending ul").html('')
     if(message.pending) {
         message.pending.forEach((chat, idx) => {
-            $("#my-chats #pending ul").append(`<li class="list-group-item id="${chat.chat_id}" >${chat.chat_id}</li>`);
+            $("#my-chats #pending ul").append(`<li class="list-group-item" id="${chat.chat_id}" >${chat.chat_id}</li>`);
+        })
+    }
+
+    $("#my-chats #ongoing ul").html('')
+    if(message.ongoing) {
+        message.ongoing.forEach((chat, idx) => {
+            $("#my-chats #ongoing ul").append(`<li class="list-group-item" id="${chat.chat_id}" >${chat.chat_id}</li>`);
         })
     }
 });
 
+
+// Get All data in client area
 socket.on("client.chat.onrefresh", (message) => {
     console.log("CLIENT chat on refresh result:", message)
 

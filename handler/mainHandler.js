@@ -8,7 +8,8 @@ const _ = require("lodash")
 const {
     getAllChatList,
     clientJoinRoom,
-    getClientChatList
+    getClientChatList,
+    userJoinRoom
 } = require("../utils/helpers");
 
 module.exports = async (io, socket) => {
@@ -58,24 +59,23 @@ module.exports = async (io, socket) => {
     });
 
     socket.on("room.join", async (id) => {
-        if (socket.request.session.user !== undefined) {
-            const userId = socket.request.session.user.id;
-            const username = socket.request.session.user.username;
-            if(userId) {
-                await redisClient.sadd(`username:${username}:rooms`, `company:A:room:${id}`);
-                console.log('someone join room', id)
-                socket.join(`company:A:room:${id}`);
-            }
-        }
+        userJoinRoom(socket, id)
     });
 
     // Client Join Room
     socket.on('chat.new', async (req=null) => {
-        // join room
-        clientJoinRoom(socket)
+        // reload session to get updated client session
+        socket.request.session.reload((err) => {
+            if (err) {
+              return socket.disconnect();
+            }
 
-        // emit there is pending chat to department
-        io.emit('chat.pending', 'hey there is new pending chat!')
+            // join room
+            clientJoinRoom(socket)
+
+            // emit there is pending chat to department
+            io.emit('chat.pending', 'hey there is new pending chat!')
+        });
     })
 
     socket.on("reconnect", (attempt) => {
@@ -86,8 +86,6 @@ module.exports = async (io, socket) => {
         // leave room based on user
         // code...
 
-        console.log('someone disconnected')
-        console.log('room dc:', socket.rooms)
         if (socket.request.session.user !== undefined) {
             const userId = socket.request.session.user.id;
             if(userId) {

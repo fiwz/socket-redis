@@ -14,7 +14,8 @@ const {
     generateChatId,
     slugify,
     createUserAuth,
-    getCurrentDateTime
+    getCurrentDateTime,
+    getMessagesByChatId
 } = require("./utils/helpers");
 const session = require("express-session");
 let RedisStore = require("connect-redis")(session);
@@ -252,10 +253,12 @@ app.post('/login-client', async function(req, res) {
     };
 
     req.session.user = user;
+    // console.log('======================', 'client session', req.session)
     await redisClient.sadd(`company:${user.company_name}:online_clients`, user.email);
 
     let chatId = generateChatId() // generate chatId
     let chatRoom = `company:${user.company_name}:room:${chatId}`
+    // let chatRoomMembersKey = chatRoom+':members'
     chatContent = {...chatContent, ...{
         from: user.email,
         user_name: user.name,
@@ -268,23 +271,19 @@ app.post('/login-client', async function(req, res) {
 
     // create room
     await redisClient.call('JSON.SET', chatRoom, '.', JSON.stringify(arrChatContent))
-    await redisClient.sadd(`company:${user.company_name}:dept:${user.department_name}:pending_chats`, chatRoom)
+    await redisClient.zadd(`company:${user.company_name}:dept:${user.department_name}:pending_chats`, getCurrentDateTime('unix'), chatRoom)
     await redisClient.set(`client:${user.email}:rooms`, chatRoom)
+    // await redisClient.sadd(chatRoomMembersKey, idUser atau Email)
 
-    // emit ke room: pending chat per department
-    // code...
-    // dev testing
-    // mainNamespace
-    //     .to(`company:A:dept:general:pending_chat_room`)
-    //     .emit("chat.pending", JSON.stringify({
-    //         roomId: `company:A:room:${chatId}`,
-    //         chatId: chatId,
-    //         from: `${user.email}`,
-    //         message: "hello from client"
-    //     }))
-
-    // join client ke room
-    // code...
+    // emit to room: pending chat per department
+    let pendingMsg = {
+        chat_id: chatId,
+        room: chatRoom,
+        chat_reply: [
+            chatContent
+        ]
+    }
+    mainNamespace.emit('chat.pending', pendingMsg)
 
     return responseData(res, 200, user)
 });
@@ -294,16 +293,35 @@ app.get('/login-info', auth, async function(req, res) {
     return responseData(res, 200, req.session.user)
 });
 
-app.get(`/users/online/:companyName`, auth, async (req, res) => {
+// app.get(`/users/online/:companyName`, auth, async (req, res) => {
+app.get(`/users/online/:companyName`, async (req, res) => {
     const companyName = req.params.companyName
     const onlineIds = await redisClient.smembers(`company:${companyName}:online_users`);
     const users = {};
     for (let onlineId of onlineIds) {
       const user = await redisClient.hgetall(`user:${onlineId}`);
       users[onlineId] = {
-        id: onlineId,
-        username: user.username,
+        // id: onlineId,
+        // username: user.username,
+        // company_name: user.company_name,
+        // online: true,
+        phone_agent: user.phone_agent,
+        email_agent: user.email_agent,
+        module: user.module,
+        agent_id: user.agent_id,
+        type_user: user.type_user,
+        department_name: user.department_name,
+        // token: user.token,
+        last_action: user.last_action,
+        status: user.status,
+        name_agent: user.name_agent,
+        permission_name: user.permission_name,
+        id_company: user.id_company,
+        uuid: user.uuid,
+        id_department: user.id_department,
+        avatar: user.avatar,
         company_name: user.company_name,
+        roles_id: user.roles_id,
         online: true,
       };
     }
@@ -366,6 +384,22 @@ app.get('/send-message', async (req, res) => {
         return responseMessage(res, 403, "Client is not logged in" )
     }
 })
+
+/** Fetch messages from a selected room */
+app.get("/chat-details/:id", auth, async (req, res) => {
+    try {
+        const chatID = req.params.id
+        const messages = await getMessagesByChatId(chatID);
+
+        // emit show.room chatId
+
+        return responseData(res, 200, messages )
+    } catch (err) {
+        return responseMessage(res, 403, 'Error fetch messages' + err )
+    }
+});
+
+
 
 // Subscribe
 sub.on("message",(channel, message) => {
