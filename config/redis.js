@@ -60,7 +60,7 @@ redisClient.once('ready', async function() {
     )
 });
 
-const justVariable = {
+const mainAction = {
     chattersData : async () => {
         const chatters = await redisClient.call('JSON.GET', 'chat_users', function(err, reply) {
             let arrChatters = []
@@ -95,7 +95,7 @@ const justVariable = {
 }
 
 module.exports = {
-    justVariable,
+    mainAction,
     client: redisClient,
     sub: redisSub,
 }

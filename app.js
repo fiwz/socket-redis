@@ -10,19 +10,21 @@ const PORT = process.env.PORT || 4000;
 require('dotenv').config(); // env
 const fs = require('fs');
 const bcrypt = require("bcrypt");
+
+const { getCurrentDateTime } = require("./utils/helpers");
+const { createUserAuth } = require("./services/user-service")
+
 const {
     generateChatId,
-    slugify,
-    createUserAuth,
-    getCurrentDateTime,
     getMessagesByChatId
-} = require("./utils/helpers");
+} = require("./services/main-chat-service")
+
 const session = require("express-session");
 let RedisStore = require("connect-redis")(session);
 
 // Redis
 const redis = require('./config/redis');
-const redisF = redis.justVariable
+const redisF = redis.mainAction
 const redisClient = redis.client
 const sub = redis.sub
 
@@ -99,12 +101,6 @@ const initPubSub = () => {
         // }
         console.log('tipe', type, data)
         mainNamespace.emit(type, data);
-
-        // console.log('tipenya', type)
-        // if(type === 'message') {
-        // console.log(data.roomId, data)
-        // io.to(`room:${data.roomId}`).emit(type, data);
-        // }
     });
     sub.subscribe("MESSAGES");
 };
@@ -236,9 +232,6 @@ app.post('/login', async function(req, res) {
     }
     req.session.user = user;
 
-    // join agent/user to pending room
-    // code...
-
     return responseMessage(res, 200, "OK" )
 });
 
@@ -253,12 +246,12 @@ app.post('/login-client', async function(req, res) {
     };
 
     req.session.user = user;
-    // console.log('======================', 'client session', req.session)
     await redisClient.sadd(`company:${user.company_name}:online_clients`, user.email);
 
     let chatId = generateChatId() // generate chatId
     let chatRoom = `company:${user.company_name}:room:${chatId}`
     // let chatRoomMembersKey = chatRoom+':members'
+    let pendingDepartmentRoom = `company:${user.company_name}:dept:${user.department_name}:pending_chat_room`
     chatContent = {...chatContent, ...{
         from: user.email,
         user_name: user.name,
@@ -283,7 +276,7 @@ app.post('/login-client', async function(req, res) {
             chatContent
         ]
     }
-    mainNamespace.emit('chat.pending', pendingMsg)
+    mainNamespace.to(pendingDepartmentRoom).emit('chat.pending', pendingMsg)
 
     return responseData(res, 200, user)
 });
@@ -329,7 +322,7 @@ app.get(`/users/online/:companyName`, async (req, res) => {
 });
 
 app.get(`/clients/online/:companyName`, auth, async (req, res) => {
-    const companyName = 'A'
+    const companyName = req.params.companyName
     const onlineIds = await redisClient.smembers(`company:${companyName}:online_clients`);
     let users = {};
     for (let onlineId in onlineIds) {
