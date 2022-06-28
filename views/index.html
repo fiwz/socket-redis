@@ -71,13 +71,17 @@
 
                         </div>
                         <div class="col-6">
-                            <div class="mb-3">Fecth Message</div>
+                            <div class="d-flex mb-3">
+                                <p class="mb-1">Fecth Message</p>
+                                <button type="button" id="btn-close-chat" class="ms-auto btn btn-danger btn-sm">Close Chat</button>
+                              </div>
                             <div id="fetch-message"></div>
                             <input type="hidden" id="chat-id" name="chat_id" class="mb-3 form-control" />
                             <input type="hidden" id="from" name="from" class="mb-3 form-control" />
                             <input type="hidden" id="date" name="date" class="mb-3 form-control" />
                             <input type="text" id="message-reply" name="message_reply" class="mb-3 form-control" placeholder="Reply Message" />
                             <input type="button" id="btn-send-message" class="btn btn-success" value="Send Message">
+
                         </div>
                     </div>
                 </div>

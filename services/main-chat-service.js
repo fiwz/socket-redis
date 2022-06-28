@@ -6,6 +6,8 @@ const sub = redis.sub
 
 const moment = require('moment');
 
+const { getCurrentDateTime } = require("../utils/helpers");
+
 /**
  * Generate Chat ID
  *
@@ -135,9 +137,62 @@ const getMessagesByChatId = async (id) => {
     return chatResult
 }
 
+const sendMessage = async(io, socket, data) => {
+    let sender = socket.request.session.user
+    let chatId = data.chatId
+    let roomId = ''
+
+    // Check if keys exists
+    let existingKeys = await redisClient.keys(`*room:${chatId}`)
+    if(existingKeys.length < 0) {
+        console.error('Send Message Error: empty keys')
+        return {
+            data: data,
+            message: 'Failed to send message'
+        }
+    }
+
+    roomId = existingKeys[0] // return the first keys
+    let datetime = getCurrentDateTime()
+
+    let chatContent = {
+        created_at: datetime,
+        updated_at: datetime,
+        formatted_date: datetime,
+        from: sender.id ? sender.id : sender.email, // agent get agent id or client
+        agent_name: sender.id ? sender.name : "",
+        user_name: sender.id ? "" : sender.name,
+        message: data.message
+    };
+
+    // Save to db
+    let saveMsg = await redisClient.call('JSON.ARRAPPEND', roomId, '.', JSON.stringify(chatContent))
+
+    io.to(roomId).emit('show.room', chatContent)
+    io.to(roomId).emit('message', chatContent)
+}
+
+const endChat = async(io, socket, data) => {
+    // cek apakah roomnya ada
+
+    // add ke list company resolve
+    // add ke list company department resolve
+    // add ke agent resolve
+
+    // hapus dari agent rooms
+    // hapus dari client rooms
+
+    // client leave socket roomId
+    // agent leave socket roomId
+}
+
+
+
 module.exports = {
     generateChatId,
     getAllChatList,
     getClientChatList,
-    getMessagesByChatId
+    getMessagesByChatId,
+    sendMessage,
+    endChat
 }

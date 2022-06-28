@@ -9,8 +9,7 @@ const {
     getClientChatList
 } = require("../services/main-chat-service");
 
-
-const { getCurrentDateTime } = require("../utils/helpers");
+const { getCurrentDateTime, slugify } = require("../utils/helpers");
 
 /**
  * User Session

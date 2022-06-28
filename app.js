@@ -263,6 +263,7 @@ app.post('/login-client', async function(req, res) {
     chatContent = {...chatContent, ...{
         from: user.email,
         user_name: user.name,
+        agent_name: "", // set agent_name to empty at first chat
         message: user.message,
         department_name: user.department_name,
         topic_name: user.topic_name
