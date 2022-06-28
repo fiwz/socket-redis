@@ -3,26 +3,33 @@ const app = express();
 const bodyParser = require('body-parser');
 const path = require('path');
 const http = require('http').Server(app);
-const io = require('socket.io')(http, {
-    allowEIO3: true // false by default
-});
 const PORT = process.env.PORT || 4000;
 require('dotenv').config(); // env
 const fs = require('fs');
 const bcrypt = require("bcrypt");
-const {
-    generateChatId,
-    slugify,
-    createUserAuth,
-    getCurrentDateTime,
-    getMessagesByChatId
-} = require("./utils/helpers");
+const cors = require("cors");
 const session = require("express-session");
 let RedisStore = require("connect-redis")(session);
+const io = require('socket.io')(http, {
+    cors: {
+        // origin: origins_arr,
+        methods: ["GET", "POST"],
+        credentials: true,
+    },
+    allowEIO3: true // false by default
+});
+
+// CORS
+var corsOptions = {
+    optionsSuccessStatus: 200, // some legacy browsers (IE11, various SmartTVs) choke on 204
+    methods: ["GET", "POST"],
+    credentials: true,
+};
+app.use(cors(corsOptions));
 
 // Redis
 const redis = require('./config/redis');
-const redisF = redis.justVariable
+const redisF = redis.mainAction
 const redisClient = redis.client
 const sub = redis.sub
 
@@ -30,18 +37,22 @@ const sub = redis.sub
 // files and parsing the request body
 app.use(express.static('public'));
 
-// set body parser
+// Set body parser
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: false }));
+const { responseData, responseMessage } = require('./utils/response-handler');
 
-/**
- * Router/routes
- */
- const mainRouter = require('./routes/index-router');
+// Router/routes
+const mainRouter = require('./routes/index-router');
 // Set Routing
 // app.use('/main-page', mainRouter)
 
-const { responseData, responseMessage } = require('./utils/response-handler');
+const { getCurrentDateTime } = require("./utils/helpers");
+const { createUserAuth } = require("./services/user-service")
+const {
+    generateChatId,
+    getMessagesByChatId
+} = require("./services/main-chat-service")
 
 // Session Middleware
 const sessionMiddleware = session({
@@ -66,7 +77,6 @@ io.use((socket, next) => {
   // sessionMiddleware(socket.request, socket.request.res, next); will not work with websocket-only
   // connections, as 'socket.request.res' will be undefined in that case
 });
-
 
 // Create Server
 const server = http.listen(PORT, () => console.log(`Server running at port: ${PORT}`));
@@ -99,12 +109,6 @@ const initPubSub = () => {
         // }
         console.log('tipe', type, data)
         mainNamespace.emit(type, data);
-
-        // console.log('tipenya', type)
-        // if(type === 'message') {
-        // console.log(data.roomId, data)
-        // io.to(`room:${data.roomId}`).emit(type, data);
-        // }
     });
     sub.subscribe("MESSAGES");
 };
@@ -236,9 +240,6 @@ app.post('/login', async function(req, res) {
     }
     req.session.user = user;
 
-    // join agent/user to pending room
-    // code...
-
     return responseMessage(res, 200, "OK" )
 });
 
@@ -253,12 +254,12 @@ app.post('/login-client', async function(req, res) {
     };
 
     req.session.user = user;
-    // console.log('======================', 'client session', req.session)
     await redisClient.sadd(`company:${user.company_name}:online_clients`, user.email);
 
     let chatId = generateChatId() // generate chatId
     let chatRoom = `company:${user.company_name}:room:${chatId}`
     // let chatRoomMembersKey = chatRoom+':members'
+    let pendingDepartmentRoom = `company:${user.company_name}:dept:${user.department_name}:pending_chat_room`
     chatContent = {...chatContent, ...{
         from: user.email,
         user_name: user.name,
@@ -283,7 +284,7 @@ app.post('/login-client', async function(req, res) {
             chatContent
         ]
     }
-    mainNamespace.emit('chat.pending', pendingMsg)
+    mainNamespace.to(pendingDepartmentRoom).emit('chat.pending', pendingMsg)
 
     return responseData(res, 200, user)
 });
@@ -329,7 +330,7 @@ app.get(`/users/online/:companyName`, async (req, res) => {
 });
 
 app.get(`/clients/online/:companyName`, auth, async (req, res) => {
-    const companyName = 'A'
+    const companyName = req.params.companyName
     const onlineIds = await redisClient.smembers(`company:${companyName}:online_clients`);
     let users = {};
     for (let onlineId in onlineIds) {
