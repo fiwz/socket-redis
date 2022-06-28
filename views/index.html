@@ -73,7 +73,10 @@
                         <div class="col-6">
                             <div class="mb-3">Fecth Message</div>
                             <div id="fetch-message"></div>
-                            <input id="message-reply" name="message_reply" class="mb-3 form-control" placeholder="Reply Message" />
+                            <input type="hidden" id="chat-id" name="chat_id" class="mb-3 form-control" />
+                            <input type="hidden" id="from" name="from" class="mb-3 form-control" />
+                            <input type="hidden" id="date" name="date" class="mb-3 form-control" />
+                            <input type="text" id="message-reply" name="message_reply" class="mb-3 form-control" placeholder="Reply Message" />
                             <input type="button" id="btn-send-message" class="btn btn-success" value="Send Message">
                         </div>
                     </div>
@@ -81,29 +84,4 @@
             </div>
 
         </div>
-
-        <!-- <div class="my-5 jumbotron py-4 px-5 bg-light border rounded rounded-4 my-3">
-            <h1 class="mb-3 display-4">Join Chat</h1>
-            <input id="username" name="username" class="mb-3 form-control" placeholder="Username" />
-            <input type="button" id="join-chat" class="btn btn-success" value="Join">
-            <div class="chat-info mb-1">chat info</div>
-            <div class="chat-member mb-1" id="chat-member">
-                <ul>
-                </ul>
-            </div>
-        </div>
-        <div class="my-5 jumbotron py-4 px-5 bg-light border rounded rounded-4 my-3">
-            <h1 class="mb-3 display-4">Send Message</h1>
-            <input id="name" class="mb-3 form-control" placeholder="Name (Optional)" />
-            <textarea id="message" class="mb-3 form-control" placeholder="Message"></textarea>
-            <input type="button" id="send-message" data-username="" value="Send Message">
-        </div>
-        <div id="messages" class="my-5 p-3 bg-light radius"></div>
-    </div> -->
-
-    <script>
-        $(() => {
-            console.log('loaded');
-        });
-    </script>
 </html>
