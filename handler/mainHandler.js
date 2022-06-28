@@ -10,7 +10,11 @@ const {
     getCurrentDateTime
 } = require("../utils/helpers");
 
-// const { getAllChatList } = require("../services/main-chat-service");
+const {
+    sendMessage,
+    endChat,
+    getAllChatList
+} = require("../services/main-chat-service");
 
 const {
     initAllConnectedUsers,
@@ -52,31 +56,29 @@ module.exports = async (io, socket) => {
         });
     })
 
+    /**
+     * Handle incoming message to socket
+     * - Handle incoming message both from agent and client
+     */
     socket.on('message', async (data=null) => {
-        // console.log('===============', 'listen dari klik btn send', data)
-        // console.log('===============', 'socketnya', socket.request.session)
+        await sendMessage(io, socket, data)
+    })
 
-        let sender = socket.request.session.user
-        let chatId = data.chatId
-        let roomId = ''
+    /**
+     * Close chat/resolve a chat/end a chat
+     */
+    socket.on('chat.end', async(data) => {
+        await endChat(io, socket, data)
+    })
 
-        // check if keys exists
-        let existingKeys = await redisClient.keys(`*room:${chatId}`)
-        if(existingKeys.length < 0) {
-            console.error('userJoinRoom: empty keys')
-            return {
-                data: roomId,
-                message: 'Failed join into chat room'
-            }
+    /**
+     * Client request to fetch all data
+     */
+    socket.on('allData', async() => {
+        if (socket.request.session.user !== undefined) {
+            const myChatList = await getAllChatList(socket)
+            socket.emit('chat.onrefresh', myChatList)
         }
-        roomId = existingKeys[0] // return the first keys
-
-        let datetime = getCurrentDateTime()
-
-        data.from = sender.id ? sender.id : sender.email
-        data.formatted_date = datetime
-
-        io.to(roomId).emit('message', data)
     })
 
     socket.on("disconnect", async () => {

@@ -287,7 +287,7 @@ $(document).on('click', '#my-chats #pending ul li', function(e) {
             message.chat_reply.forEach((chat, idx) => {
                 $("#fetch-message").append(`
                     <div style='margin-bottom: 8px;'>
-                        <p style='margin: 0px;'>${chat.from}</p>
+                        <p style='margin: 0px;'>${chat.agent_name ? chat.agent_name : chat.from}</p>
                         <p style='margin: 0px;'>${chat.message}</p>
                         <small>${chat.formatted_date}</small>
                     </div
@@ -323,7 +323,7 @@ $(document).on('click', '#my-chats #ongoing ul li', function(e) {
             message.chat_reply.forEach((chat, idx) => {
                 $("#fetch-message").append(`
                     <div style='margin-bottom: 8px;'>
-                        <p style='margin: 0px;'>${chat.from}</p>
+                        <p style='margin: 0px;'>${chat.agent_name ? chat.agent_name : chat.from}</p>
                         <p style='margin: 0px;'>${chat.message}</p>
                         <small>${chat.formatted_date}</small>
                     </div
@@ -357,6 +357,23 @@ $(document).on('click', '#btn-send-message', function(e) {
     })
 })
 
+$(document).on('click', '#btn-close-chat', function(e) {
+    let elementId = $('#chat-id').val()
+    let chatId = elementId
+    if(elementId.search(':') != -1) {
+        let roomArr = elementId.split(':')
+        chatId = roomArr.pop()
+    }
+
+    socket.emit('chat.end', {
+        chatId: chatId
+    })
+})
+
+// Get and request all data
+// $('#btn-example').click(function() {
+    socket.emit('allData')
+// })
 
 
 /** Socket */
@@ -420,7 +437,7 @@ socket.on("chat.ongoing", (message) => {
  * and show bubble chat when agent is opening the same chat detail
  */
  socket.on("show.room", (data) => {
-    console.log("show room:", data)
+    console.log("socket on show room: (Please open this chat)", data)
 });
 
 /**
@@ -432,7 +449,7 @@ socket.on("chat.ongoing", (message) => {
 socket.on("message", (message) => {
     $("#fetch-message").append(`
         <div style='margin-bottom: 8px;'>
-            <p style='margin: 0px;'>${message.from}</p>
+            <p style='margin: 0px;'>${message.agent_name ? message.agent_name : message.from}</p>
             <p style='margin: 0px;'>${message.message}</p>
             <small>${message.formatted_date}</small>
         </div
@@ -495,7 +512,7 @@ socket.on("client.chat.onrefresh", (message) => {
         message.chat_reply.forEach((chat, idx) => {
             $("#fetch-message").append(`
                 <div style='margin-bottom: 8px;'>
-                    <p style='margin: 0px;'>${chat.from}</p>
+                    <p style='margin: 0px;'>${chat.agent_name ? chat.agent_name : chat.from}</p>
                     <p style='margin: 0px;'>${chat.message}</p>
                     <small>${chat.formatted_date}</small>
                 </div
