@@ -3,24 +3,29 @@ const app = express();
 const bodyParser = require('body-parser');
 const path = require('path');
 const http = require('http').Server(app);
-const io = require('socket.io')(http, {
-    allowEIO3: true // false by default
-});
 const PORT = process.env.PORT || 4000;
 require('dotenv').config(); // env
 const fs = require('fs');
 const bcrypt = require("bcrypt");
-
-const { getCurrentDateTime } = require("./utils/helpers");
-const { createUserAuth } = require("./services/user-service")
-
-const {
-    generateChatId,
-    getMessagesByChatId
-} = require("./services/main-chat-service")
-
+const cors = require("cors");
 const session = require("express-session");
 let RedisStore = require("connect-redis")(session);
+const io = require('socket.io')(http, {
+    cors: {
+        // origin: origins_arr,
+        methods: ["GET", "POST"],
+        credentials: true,
+    },
+    allowEIO3: true // false by default
+});
+
+// CORS
+var corsOptions = {
+    optionsSuccessStatus: 200, // some legacy browsers (IE11, various SmartTVs) choke on 204
+    methods: ["GET", "POST"],
+    credentials: true,
+};
+app.use(cors(corsOptions));
 
 // Redis
 const redis = require('./config/redis');
@@ -32,18 +37,22 @@ const sub = redis.sub
 // files and parsing the request body
 app.use(express.static('public'));
 
-// set body parser
+// Set body parser
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: false }));
+const { responseData, responseMessage } = require('./utils/response-handler');
 
-/**
- * Router/routes
- */
- const mainRouter = require('./routes/index-router');
+// Router/routes
+const mainRouter = require('./routes/index-router');
 // Set Routing
 // app.use('/main-page', mainRouter)
 
-const { responseData, responseMessage } = require('./utils/response-handler');
+const { getCurrentDateTime } = require("./utils/helpers");
+const { createUserAuth } = require("./services/user-service")
+const {
+    generateChatId,
+    getMessagesByChatId
+} = require("./services/main-chat-service")
 
 // Session Middleware
 const sessionMiddleware = session({
@@ -68,7 +77,6 @@ io.use((socket, next) => {
   // sessionMiddleware(socket.request, socket.request.res, next); will not work with websocket-only
   // connections, as 'socket.request.res' will be undefined in that case
 });
-
 
 // Create Server
 const server = http.listen(PORT, () => console.log(`Server running at port: ${PORT}`));
