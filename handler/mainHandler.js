@@ -22,7 +22,50 @@ const {
     clientGetAndJoinRoom
 } = require("../services/user-service")
 
+
+// const session = require("express-session");
+// let RedisStore = require("connect-redis")(session);
+
+// // Session Middleware
+// const sessionMiddleware = session({
+//     store: new RedisStore({ client: redisClient }),
+//     secret: "keyboard cat",
+//     saveUninitialized: true,
+//     resave: true,
+// });
+
+
 module.exports = async (io, socket) => {
+    // console.log('==========', 'user socket id: ', socket.id)
+    // console.log('==========', 'user session', socket.request.session)
+    // console.log('==========', 'user session ID', socket.request.sessionID)
+
+    // sessionMiddleware(socket.request, {}, async function(){
+    //     console.log('*********', 'session ID', socket.request.sessionID)
+    //     socket.request.session.save()
+    //     console.log('session from redis', await redisClient.get(`sess:${socket.request.sessionID}`) )
+    // })
+
+    socket.on('user.login', async(request) => {
+        sessionMiddleware(socket.request, {}, async function(){
+            // console.log('*********', 'session ID', socket.request.sessionID)
+            socket.request.session.user = "{'name': 'fia'}"
+            socket.request.session.save()
+            console.log('session from redis', await redisClient.get(`sess:${socket.request.sessionID}`) )
+        })
+        console.log('###############', socket.request.session)
+    })
+
+    socket.on('reload', async (req=null) => {
+        // Reload session to get updated client session
+        socket.request.session.reload((err) => {
+            if (err) {
+              return socket.disconnect();
+            }
+            console.log('***************', 'reload socket', socket.request.session)
+        });
+
+    })
 
     await initAllConnectedUsers(io, socket)
 
@@ -69,6 +112,7 @@ module.exports = async (io, socket) => {
      */
     socket.on('chat.end', async(data) => {
         const result = await endChat(io, socket, data)
+        // console.log('result', result)
     })
 
     /**
