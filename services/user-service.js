@@ -160,6 +160,7 @@ const userInsertAndJoinRoom = async(socket, id) => {
 
     // add user to room:QBFCL1656301812:members (optional)
     // await redisClient.sadd(chatRoomMembersKey, idAgent)
+    await redisClient.zadd(chatRoomMembersKey, getCurrentDateTime('unix'), user.id)
 
     // get message bubbles
     let bubbles = await redisClient.call('JSON.GET', roomId)

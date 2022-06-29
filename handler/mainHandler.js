@@ -20,7 +20,7 @@ const {
     initAllConnectedUsers,
     userInsertAndJoinRoom,
     clientGetAndJoinRoom
- } = require("../services/user-service")
+} = require("../services/user-service")
 
 module.exports = async (io, socket) => {
 
@@ -68,7 +68,7 @@ module.exports = async (io, socket) => {
      * Close chat/resolve a chat/end a chat
      */
     socket.on('chat.end', async(data) => {
-        await endChat(io, socket, data)
+        const result = await endChat(io, socket, data)
     })
 
     /**
@@ -88,7 +88,7 @@ module.exports = async (io, socket) => {
         if (socket.request.session.user !== undefined) {
             const userId = socket.request.session.user.id;
             if(userId) {
-                await redisClient.srem("company:A:online_users", userId);
+                await redisClient.srem(`company:${socket.request.session.user.company_name}:online_users`, userId);
                 console.log('user is offline: ', userId)
             } else {
                 await redisClient.srem("company:A:online_clients", socket.request.session.user.email);

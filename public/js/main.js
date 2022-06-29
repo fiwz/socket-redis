@@ -181,6 +181,8 @@ $('#btn-login').click(function() {
             showLoginInfo()
         }
     });
+
+    // socket.emit('user.login', dataAuth)
 });
 
 /**
@@ -301,6 +303,9 @@ $(document).on('click', '#my-chats #pending ul li', function(e) {
 
     // remove chat id from list
     $(this).remove()
+
+    // set input reply value
+    $('#chat-id').val(chatId)
 });
 
 /**
@@ -332,6 +337,31 @@ $(document).on('click', '#my-chats #ongoing ul li', function(e) {
 
             // set input reply value
             $('#chat-id').val(message.chat_id)
+        }
+    });
+});
+
+$(document).on('click', '#my-chats #resolve ul li', function(e) {
+    let elementId = $(this).attr('id')
+    let chatId = elementId
+    if(elementId.search(':') != -1) {
+        let roomArr = elementId.split(':')
+        chatId = roomArr.pop()
+    }
+
+    $.get(`/chat-details/${chatId}`, function(response) {
+        let message = response.data
+        $("#fetch-message").html('')
+        if(message.chat_reply) {
+            message.chat_reply.forEach((chat, idx) => {
+                $("#fetch-message").append(`
+                    <div style='margin-bottom: 8px;'>
+                        <p style='margin: 0px;'>${chat.agent_name ? chat.agent_name : chat.from}</p>
+                        <p style='margin: 0px;'>${chat.message}</p>
+                        <small>${chat.formatted_date}</small>
+                    </div
+                `);
+            })
         }
     });
 });
@@ -427,6 +457,17 @@ socket.on("chat.ongoing", (message) => {
     $("#my-chats #ongoing ul").append(`<li class="list-group-item" id="${chatId}" >${chatId}</li>`);
 });
 
+socket.on("chat.resolve", (response) => {
+    console.log('dataaaaaaaaaaa', response)
+
+    $("#my-chats #resolve ul").html('')
+    if(response.data) {
+        response.data.forEach((chat, idx) => {
+            $("#my-chats #resolve ul").append(`<li class="list-group-item" id="${chat.chat_id}" >${chat.chat_id}</li>`);
+        })
+    }
+});
+
 /**
  * Show Room
  *
@@ -478,6 +519,14 @@ socket.on("chat.onrefresh", (message) => {
     if(message.ongoing) {
         message.ongoing.forEach((chat, idx) => {
             $("#my-chats #ongoing ul").append(`<li class="list-group-item" id="${chat.chat_id}" >${chat.chat_id}</li>`);
+        })
+    }
+
+    // resolve
+    $("#my-chats #resolve ul").html('')
+    if(message.resolve) {
+        message.resolve.forEach((chat, idx) => {
+            $("#my-chats #resolve ul").append(`<li class="list-group-item" id="${chat.chat_id}" >${chat.chat_id}</li>`);
         })
     }
 

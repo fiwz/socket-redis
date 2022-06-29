@@ -222,7 +222,6 @@ app.get('/get_chatters', async function(req, res) {
         return responseData(res, 200, { numberOfChatters: userData.length, member_joined: userData})
     })
     .catch((error) => {
-        console.log('Error Get Chatters ', error)
         return responseData(res, 200, { numberOfChatters: 0, member_joined: []})
     })
 });
@@ -239,6 +238,8 @@ app.post('/login', async function(req, res) {
         department_name: savedData.department_name
     }
     req.session.user = user;
+
+    // console.log('#########', 'from login/sessionID', req.sessionID)
 
     return responseMessage(res, 200, "OK" )
 });
@@ -258,12 +259,11 @@ app.post('/login-client', async function(req, res) {
 
     let chatId = generateChatId() // generate chatId
     let chatRoom = `company:${user.company_name}:room:${chatId}`
-    // let chatRoomMembersKey = chatRoom+':members'
+    let chatRoomMembersKey = chatRoom+':members'
     let pendingDepartmentRoom = `company:${user.company_name}:dept:${user.department_name}:pending_chat_room`
     chatContent = {...chatContent, ...{
         from: user.email,
         user_name: user.name,
-        agent_name: "", // set agent_name to empty at first chat
         message: user.message,
         department_name: user.department_name,
         topic_name: user.topic_name
@@ -275,7 +275,7 @@ app.post('/login-client', async function(req, res) {
     await redisClient.call('JSON.SET', chatRoom, '.', JSON.stringify(arrChatContent))
     await redisClient.zadd(`company:${user.company_name}:dept:${user.department_name}:pending_chats`, getCurrentDateTime('unix'), chatRoom)
     await redisClient.set(`client:${user.email}:rooms`, chatRoom)
-    // await redisClient.sadd(chatRoomMembersKey, idUser atau Email)
+    await redisClient.zadd(chatRoomMembersKey, getCurrentDateTime('unix'), user.email)
 
     // emit to room: pending chat per department
     let pendingMsg = {
@@ -286,6 +286,8 @@ app.post('/login-client', async function(req, res) {
         ]
     }
     mainNamespace.to(pendingDepartmentRoom).emit('chat.pending', pendingMsg)
+
+    // console.log('================', 'session login api', req.sessionID)
 
     return responseData(res, 200, user)
 });
@@ -365,7 +367,6 @@ app.get("/:companyName/chats/pending", auth, async (req, res) => {
         pendingChats[idx] = pd
     })
 
-    console.log('pending chats', pendingList, typeof(pendingList))
     return responseData(res, 200, pendingChats)
 });
 
