@@ -43,6 +43,10 @@ const createUserAuth = async (data) => {
     let usersInDepartmentKey = `company:${companySlug}:dept:${departmentSlug}:users`
     await redisClient.sadd(usersInDepartmentKey, data.agent_id)
 
+    // Add to online user list
+    let companyOnlineUsersKey = `company:${companySlug}:online_users`
+    await redisClient.zadd(companyOnlineUsersKey, getCurrentDateTime('unix'), data.agent_id);
+
     return newData
 }
 
@@ -62,13 +66,25 @@ const initAllConnectedUsers = async(io, socket) => {
         if(user.id) {
             // Add to online user list
             let companyOnlineUsersKey = `company:${user.company_name}:online_users`
-            await redisClient.sadd(companyOnlineUsersKey, user.id);
+            await redisClient.zadd(companyOnlineUsersKey, getCurrentDateTime('unix'), user.id);
             // console.log(`User is connected: ${user.id}`)
 
             userGetAndJoinRoom(socket)
 
             const myChatList = await getAllChatList(socket)
-            socket.emit('chat.onrefresh', myChatList)
+            const companyOnlineUsers = await getCompanyOnlineUsers(socket)
+
+            let result = myChatList
+            result.online_users = companyOnlineUsers
+
+            /** Emit to FE */
+            // Emit All Data
+            socket.emit('chat.onrefresh', result)
+
+            // Emit Online Users
+            let companyOnlineUserRoom = `company:${user.company_name}:online_user_room`
+            // io.sockets.emit('users.online', companyOnlineUsers) // to all user
+            io.to(companyOnlineUserRoom).emit('users.online', companyOnlineUsers) // to all user in a company
         } else { // If client
             clientGetAndJoinRoom(socket)
 
@@ -76,6 +92,27 @@ const initAllConnectedUsers = async(io, socket) => {
             socket.emit('client.chat.onrefresh', clientChatList)
         }
     }
+}
+
+const getCompanyOnlineUsers = async(socket=null, request=null) => {
+    let onlineUsers = []
+    let sourceAuthData = socket ? socket.request : request
+
+    if (sourceAuthData.session.user !== undefined) {
+        const user = sourceAuthData.session.user
+        let companyOnlineUsersKey = `company:${user.company_name}:online_users`
+
+        let isMemberExists = await redisClient.zrange(companyOnlineUsersKey, 0, -1)
+        if(isMemberExists) {
+            for(let [idx, member] of isMemberExists.entries()) {
+                let memberDetailKey = await redisClient.hgetall(`user:${member}`)
+                if(memberDetailKey)
+                    onlineUsers[idx] = memberDetailKey
+            }
+        }
+    }
+
+    return onlineUsers
 }
 
 /**
@@ -110,6 +147,10 @@ const clientGetAndJoinRoom = async (socket) => {
         socket.join(item)
         console.log('User joined: ', item)
     }
+
+    // Join Company Online User Room
+    let companyOnlineUserRoom = `company:${user.company_name}:online_user_room`
+    socket.join(companyOnlineUserRoom)
 
     // Join Department Room
     // Agent will get notified if there is new pending chat
@@ -193,5 +234,7 @@ module.exports = {
     createUserAuth,
     initAllConnectedUsers,
     userInsertAndJoinRoom,
-    clientGetAndJoinRoom
+    clientGetAndJoinRoom,
+    getCompanyOnlineUsers,
+    userGetAndJoinRoom
 }

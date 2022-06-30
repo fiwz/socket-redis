@@ -19,7 +19,9 @@ const {
 const {
     initAllConnectedUsers,
     userInsertAndJoinRoom,
-    clientGetAndJoinRoom
+    clientGetAndJoinRoom,
+    getCompanyOnlineUsers,
+    userGetAndJoinRoom
 } = require("../services/user-service")
 
 
@@ -39,22 +41,14 @@ module.exports = async (io, socket) => {
     // console.log('==========', 'user socket id: ', socket.id)
     // console.log('==========', 'user session', socket.request.session)
     // console.log('==========', 'user session ID', socket.request.sessionID)
+    // console.log('===============', 'via handshake', socket.handshake)
+    // console.log('session from redis', socket.handshake.sessionID, '=====>>>>>>', await redisClient.get(`sess:${socket.handshake.sessionID}`) )
 
     // sessionMiddleware(socket.request, {}, async function(){
     //     console.log('*********', 'session ID', socket.request.sessionID)
     //     socket.request.session.save()
     //     console.log('session from redis', await redisClient.get(`sess:${socket.request.sessionID}`) )
     // })
-
-    socket.on('user.login', async(request) => {
-        sessionMiddleware(socket.request, {}, async function(){
-            // console.log('*********', 'session ID', socket.request.sessionID)
-            socket.request.session.user = "{'name': 'fia'}"
-            socket.request.session.save()
-            console.log('session from redis', await redisClient.get(`sess:${socket.request.sessionID}`) )
-        })
-        console.log('###############', socket.request.session)
-    })
 
     socket.on('reload', async (req=null) => {
         // Reload session to get updated client session
@@ -63,17 +57,38 @@ module.exports = async (io, socket) => {
               return socket.disconnect();
             }
             console.log('***************', 'reload socket', socket.request.session)
+            userGetAndJoinRoom(socket)
         });
 
     })
 
     await initAllConnectedUsers(io, socket)
 
-    // // Fire 'send' event for updating Message list in UI
-    // socket.on('message', function(data) {
-    //     console.log('socket message in server', data)
-    //     io.emit('send', data);
-    // });
+    /**
+     * User (Agent) Login
+     *
+     * Refresh/reload socket session on login
+     */
+    socket.on('user.login', async(request) => {
+        // sessionMiddleware(socket.request, {}, async function(){
+        //     // console.log('*********', 'session ID', socket.request.sessionID)
+        //     socket.request.session.user = "{'name': 'fia'}"
+        //     socket.request.session.save()
+        //     console.log('session from redis', await redisClient.get(`sess:${socket.request.sessionID}`) )
+        // })
+
+        // socket.handshake.session.userdata = request
+        // socket.handshake.session.save();
+        // console.log('###############', socket.handshake)
+
+        await socket.request.session.reload((err) => {
+            if (err) {
+              return socket.disconnect();
+            }
+            console.log('***************', 'LOGIN: reload socket', socket.request.session)
+            userGetAndJoinRoom(socket)
+        });
+    })
 
     /**
      * Agent Join Room
@@ -121,7 +136,12 @@ module.exports = async (io, socket) => {
     socket.on('allData', async() => {
         if (socket.request.session.user !== undefined) {
             const myChatList = await getAllChatList(socket)
-            socket.emit('chat.onrefresh', myChatList)
+            const companyOnlineUsers = await getCompanyOnlineUsers(socket)
+
+            let result = myChatList
+            result.online_users = companyOnlineUsers
+
+            socket.emit('chat.onrefresh', result)
         }
     })
 
@@ -129,13 +149,24 @@ module.exports = async (io, socket) => {
         // leave room based on user
         // code...
 
+        console.log('disconnect sesss', socket.request.session.user)
+
         if (socket.request.session.user !== undefined) {
-            const userId = socket.request.session.user.id;
-            if(userId) {
-                await redisClient.srem(`company:${socket.request.session.user.company_name}:online_users`, userId);
-                console.log('user is offline: ', userId)
+            const user = socket.request.session.user;
+            if(user.id) {
+                // Leave Company Room
+                await redisClient.zrem(`company:${user.company_name}:online_users`, user.id); // remove from redis
+                let companyOnlineUserRoom = `company:${user.company_name}:online_user_room`
+                io.in(socket.id).socketsLeave(companyOnlineUserRoom); // leave socket
+
+                // Emit to FE
+                // Get Latest Online Users
+                const companyOnlineUsers = await getCompanyOnlineUsers(socket)
+                io.to(companyOnlineUserRoom).emit('users.offline', companyOnlineUsers)
+
+                console.log('user is offline: ', user.id)
             } else {
-                await redisClient.srem("company:A:online_clients", socket.request.session.user.email);
+                await redisClient.srem(`company:${socket.request.session.user.company_name}:online_clients`, socket.request.session.user.email);
                 console.log('client is offline: ', socket.request.session.user.email)
             }
         }

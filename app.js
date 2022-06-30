@@ -48,7 +48,7 @@ const mainRouter = require('./routes/index-router');
 // app.use('/main-page', mainRouter)
 
 const { getCurrentDateTime } = require('./utils/helpers');
-const { createUserAuth } = require('./services/user-service');
+const { createUserAuth, getCompanyOnlineUsers } = require('./services/user-service');
 const {
   generateChatId,
   getMessagesByChatId,
@@ -68,6 +68,13 @@ const auth = (req, res, next) => {
   }
   next();
 };
+
+// var sharedsession = require("express-socket.io-session");
+// app.use(sessionMiddleware);
+// io.use(sharedsession(sessionMiddleware, {
+//     autoSave:true
+// }));
+
 
 /** Store session in redis. */
 app.use(sessionMiddleware);
@@ -261,7 +268,7 @@ app.post('/login', async function (req, res) {
   };
   req.session.user = user;
 
-    // console.log('#########', 'from login/sessionID', req.sessionID)
+    console.log('#########', 'from login/sessionID', req.sessionID)
 
     return responseMessage(res, 200, "OK" )
 });
@@ -322,41 +329,11 @@ app.get('/login-info', auth, async function (req, res) {
 
 // app.get(`/users/online/:companyName`, auth, async (req, res) => {
 app.get(`/users/online/:companyName`, async (req, res) => {
-  const companyName = req.params.companyName;
-  const onlineIds = await redisClient.smembers(
-    `company:${companyName}:online_users`
-  );
-  const users = {};
-  for (let onlineId of onlineIds) {
-    const user = await redisClient.hgetall(`user:${onlineId}`);
-    users[onlineId] = {
-      // id: onlineId,
-      // username: user.username,
-      // company_name: user.company_name,
-      // online: true,
-      phone_agent: user.phone_agent,
-      email_agent: user.email_agent,
-      module: user.module,
-      agent_id: user.agent_id,
-      type_user: user.type_user,
-      department_name: user.department_name,
-      // token: user.token,
-      last_action: user.last_action,
-      status: user.status,
-      name_agent: user.name_agent,
-      permission_name: user.permission_name,
-      id_company: user.id_company,
-      uuid: user.uuid,
-      id_department: user.id_department,
-      avatar: user.avatar,
-      company_name: user.company_name,
-      roles_id: user.roles_id,
-      online: true,
-    };
-  }
-  mainNamespace.emit('usersOnline', users);
+//   const companyName = req.params.companyName; // param is no longer used
+    const users = await getCompanyOnlineUsers(null, req)
+    mainNamespace.emit('usersOnline', users);
 
-  return responseData(res, 200, users);
+    return responseData(res, 200, users);
 });
 
 app.get(`/clients/online/:companyName`, auth, async (req, res) => {

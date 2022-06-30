@@ -179,9 +179,11 @@ $('#btn-login').click(function() {
         data: dataAuth,
         success: function(response) {
             showLoginInfo()
+            socket.emit('user.login')
         }
     });
 
+    // for debug issue session
     // socket.emit('user.login', dataAuth)
 });
 
@@ -532,6 +534,7 @@ socket.on("chat.onrefresh", (message) => {
 
     // online agents
     // code...
+    console.log('Online users in my company: ', message.online_users)
 });
 
 /**
@@ -539,7 +542,9 @@ socket.on("chat.onrefresh", (message) => {
  *
  * Listen if there is logged in user
  */
-// code...
+socket.on("users.online", (data) => {
+    console.log('Listen to users.online', data)
+})
 
 /**
  * Offline agent (user)
@@ -547,6 +552,9 @@ socket.on("chat.onrefresh", (message) => {
  * Listen if there is logged out user
  */
 // code...
+socket.on("users.offline", (data) => {
+    console.log('(Listen to users.offline) A user has been offline, remaining users: ', data)
+})
 
 
 /** Client Area */
