@@ -1,4 +1,5 @@
 // Redis
+const { result } = require('lodash');
 const redis = require('../config/redis');
 const redisF = redis.mainAction
 const redisClient = redis.client
@@ -6,7 +7,9 @@ const sub = redis.sub
 
 const {
     getAllChatList,
-    getClientChatList
+    getClientChatList,
+    getOngoingListByUser,
+    getPendingListByUser,
 } = require("../services/main-chat-service");
 
 const { getCurrentDateTime, slugify } = require("../utils/helpers");
@@ -78,11 +81,12 @@ const initAllConnectedUsers = async(io, socket) => {
             result.online_users = companyOnlineUsers
 
             /** Emit to FE */
+            let companyOnlineUserRoom = `company:${user.company_name}:online_user_room`
             // Emit All Data
-            socket.emit('chat.onrefresh', result)
+            socket.emit('chat.onrefresh', result) // to all user
+            // io.to(companyOnlineUserRoom).emit('chat.onrefresh', result) // to all user in a company
 
             // Emit Online Users
-            let companyOnlineUserRoom = `company:${user.company_name}:online_user_room`
             // io.sockets.emit('users.online', companyOnlineUsers) // to all user
             io.to(companyOnlineUserRoom).emit('users.online', companyOnlineUsers) // to all user in a company
         } else { // If client
@@ -223,10 +227,16 @@ const userInsertAndJoinRoom = async(socket, id) => {
         }
     }
 
-    return {
-        data: chatResult,
+    let pendingList = await getPendingListByUser(socket)
+    let ongoingList = await getOngoingListByUser(socket)
+    let result = {
+        pending: pendingList,
+        ongoing: ongoingList,
+        chat_detail: chatResult,
         message: 'Successfully join into chat room!'
     }
+
+    return result
 }
 
 

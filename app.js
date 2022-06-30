@@ -50,16 +50,17 @@ const mainRouter = require('./routes/index-router');
 const { getCurrentDateTime } = require('./utils/helpers');
 const { createUserAuth, getCompanyOnlineUsers } = require('./services/user-service');
 const {
-  generateChatId,
-  getMessagesByChatId,
+    generateChatId,
+    getMessagesByChatId,
+    getPendingListByRoomKey
 } = require('./services/main-chat-service');
 
 // Session Middleware
 const sessionMiddleware = session({
-  store: new RedisStore({ client: redisClient }),
-  secret: 'keyboard cat',
-  saveUninitialized: true,
-  resave: true,
+    store: new RedisStore({ client: redisClient }),
+    secret: 'keyboard cat',
+    saveUninitialized: true,
+    resave: true,
 });
 
 const auth = (req, res, next) => {
@@ -275,19 +276,16 @@ app.post('/login', async function (req, res) {
 
 // API - Login Client
 app.post('/login-client', async function (req, res) {
-  let datetime = getCurrentDateTime();
-  let user = req.body;
-  let chatContent = {
-    created_at: datetime,
-    updated_at: datetime,
-    formatted_date: datetime,
-  };
+    let datetime = getCurrentDateTime();
+    let user = req.body;
+    let chatContent = {
+        created_at: datetime,
+        updated_at: datetime,
+        formatted_date: datetime,
+    };
 
-  req.session.user = user;
-  await redisClient.sadd(
-    `company:${user.company_name}:online_clients`,
-    user.email
-  );
+    req.session.user = user;
+    await redisClient.sadd(`company:${user.company_name}:online_clients`, user.email);
 
     let chatId = generateChatId() // generate chatId
     let chatRoom = `company:${user.company_name}:room:${chatId}`
@@ -301,21 +299,18 @@ app.post('/login-client', async function (req, res) {
         topic_name: user.topic_name
     }}
 
-  let arrChatContent = [chatContent];
+    let arrChatContent = [chatContent];
 
     // create room
+    let pendingRoomKey = `company:${user.company_name}:dept:${user.department_name}:pending_chats`
     await redisClient.call('JSON.SET', chatRoom, '.', JSON.stringify(arrChatContent))
-    await redisClient.zadd(`company:${user.company_name}:dept:${user.department_name}:pending_chats`, getCurrentDateTime('unix'), chatRoom)
+    await redisClient.zadd(pendingRoomKey, getCurrentDateTime('unix'), chatRoom)
     await redisClient.set(`client:${user.email}:rooms`, chatRoom)
     await redisClient.zadd(chatRoomMembersKey, getCurrentDateTime('unix'), user.email)
 
-  // emit to room: pending chat per department
-  let pendingMsg = {
-    chat_id: chatId,
-    room: chatRoom,
-    chat_reply: [chatContent],
-  };
-  mainNamespace.to(pendingDepartmentRoom).emit('chat.pending', pendingMsg);
+    // emit to room: pending chat per department
+    const pendingList = await getPendingListByRoomKey(pendingRoomKey)
+    mainNamespace.to(pendingDepartmentRoom).emit('chat.pending', pendingList);
 
     // console.log('================', 'session login api', req.sessionID)
 

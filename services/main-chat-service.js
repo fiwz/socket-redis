@@ -44,6 +44,20 @@ const getPendingListByUser = async(socket) => {
 }
 
 /**
+ * Get Pending List by Room Key
+ * Example: get pending list in department
+ *
+ * @param {String} roomKey
+ * @returns
+ */
+const getPendingListByRoomKey = async(roomKey) => {
+    let listPendingChatRoom = roomKey;
+    let pendingList = await getMessagesByManyChatRoom(listPendingChatRoom)
+
+    return pendingList
+}
+
+/**
  * Get on going list and its messages
  * by logged in agent (user)
  *
@@ -288,20 +302,25 @@ const endChat = async(io, socket, data) => {
     io.in(roomId).socketsLeave(roomId);
 
     let listResolve = await getResolveListByUser(socket)
-    let updatedData = {
-        data: listResolve,
+    let ongoingList = await getOngoingListByUser(socket)
+    let result = {
+        resolve: listResolve,
+        ongoing: ongoingList,
         message: `End chat for chat id ${chatId}`
     }
-    io.emit('chat.resolve', updatedData)
+    io.emit('chat.resolve', result)
 
     return updatedData
 }
 
 module.exports = {
+    endChat,
     generateChatId,
     getAllChatList,
     getClientChatList,
     getMessagesByChatId,
-    sendMessage,
-    endChat
+    getOngoingListByUser,
+    getPendingListByRoomKey,
+    getPendingListByUser,
+    sendMessage
 }

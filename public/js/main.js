@@ -444,8 +444,10 @@ $(document).on('click', '#btn-close-chat', function(e) {
  * Listening if there is new chat from client
  */
 socket.on("chat.pending", (message) => {
-    let chatId = message.chat_id
-    $("#my-chats #pending ul").append(`<li class="list-group-item" id="${chatId}" >${chatId}</li>`);
+    $("#my-chats #pending ul").html("")
+    for(let [index, chat] of message.entries()) {
+        $("#my-chats #pending ul").append(`<li class="list-group-item" id="${chat.chat_id}" >${chat.chat_id}</li>`);
+    }
 });
 
 /**
@@ -455,18 +457,38 @@ socket.on("chat.pending", (message) => {
  * Listening if there is new on going list
  */
 socket.on("chat.ongoing", (message) => {
-    let chatId = message.data.chat_id
-    $("#my-chats #ongoing ul").append(`<li class="list-group-item" id="${chatId}" >${chatId}</li>`);
+    // Reset on going list
+    if(message.ongoing) {
+        $("#my-chats #ongoing ul").html("")
+        for(let [index, chat] of (message.ongoing).entries()) {
+            $("#my-chats #ongoing ul").append(`<li class="list-group-item" id="${chat.chat_id}" >${chat.chat_id}</li>`);
+        }
+    }
+
+    // Reset pending list
+    if(message.pending) {
+        $("#my-chats #pending ul").html("")
+        for(let [index, chat] of (message.pending).entries()) {
+            $("#my-chats #pending ul").append(`<li class="list-group-item" id="${chat.chat_id}" >${chat.chat_id}</li>`);
+        }
+    }
 });
 
-socket.on("chat.resolve", (response) => {
-    console.log('dataaaaaaaaaaa', response)
+socket.on("chat.resolve", (message) => {
+    // Reset on going list
+    if(message.ongoing) {
+        $("#my-chats #ongoing ul").html("")
+        for(let [index, chat] of (message.ongoing).entries()) {
+            $("#my-chats #ongoing ul").append(`<li class="list-group-item" id="${chat.chat_id}" >${chat.chat_id}</li>`);
+        }
+    }
 
-    $("#my-chats #resolve ul").html('')
-    if(response.data) {
-        response.data.forEach((chat, idx) => {
+    // Reset resolve list
+    if(message.resolve) {
+        $("#my-chats #resolve ul").html("")
+        for(let [index, chat] of (message.resolve).entries()) {
             $("#my-chats #resolve ul").append(`<li class="list-group-item" id="${chat.chat_id}" >${chat.chat_id}</li>`);
-        })
+        }
     }
 });
 
