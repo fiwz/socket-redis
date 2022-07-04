@@ -86,15 +86,18 @@ app.get('/login', (req, res) => {
     const socket2 = io('http://localhost:4001', {
         withCredentials: true,
     });
+    socket2.connect()
 
-    const response = fetch('http://localhost:4001/login?name=afiani',
-        {
-            method: "POST",
-            credentials: 'include'
-        }
+    const response = fetch('http://localhost:4001/login?name=Bobi',
+    {
+        method: "POST",
+        headers: { 'Content-Type': 'application/json' }, // do not pass this when using GET method
+        body: JSON.stringify(data_login_post), // do not pass this when using GET method
+        credentials: 'include'
+    }
     ).then((response) => {
         console.log('response login client', response)
-    })
+    });
  *
  */
 
