@@ -74,8 +74,8 @@ const server = http.listen(PORT, () =>
 );
 
 // API Login
-app.post('/login', (req, res) => {
-    req.session.user = {'name': 'Afiani'};
+app.get('/login', (req, res) => {
+    req.session.user = {'name': req.query.name};
     res.send('ok')
 });
 
