@@ -261,24 +261,17 @@ app.get('/get_chatters', async function (req, res) {
 });
 
 // API - Login
-app.get('/login', async function (req, res) {
-    /** Previous code (using post method) */
-    // const data = req.body;
-    // const savedData = await createUserAuth(data);
-    // let user = {
-    //     id: savedData.agent_id,
-    //     email: savedData.email_agent,
-    //     name: savedData.name_agent,
-    //     company_name: savedData.company_name,
-    //     department_name: savedData.department_name,
-    // };
-    // req.session.user = user;
-
-    /** Development using get method */
-    req.session.user = { name: req.query.name }
-    console.log('#########', 'from login/sessionID', req.sessionID)
-    console.log('req body', req.body)
-    console.log('req query', req.query)
+app.post('/login', async function (req, res) {
+    const data = req.body;
+    const savedData = await createUserAuth(data);
+    let user = {
+        id: savedData.agent_id,
+        email: savedData.email_agent,
+        name: savedData.name_agent,
+        company_name: savedData.company_name,
+        department_name: savedData.department_name,
+    };
+    req.session.user = user;
 
     return responseMessage(res, 200, "OK" )
 });
