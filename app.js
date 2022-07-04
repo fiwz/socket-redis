@@ -1,31 +1,35 @@
 const express = require('express');
 const app = express();
+require('dotenv').config(); // env
 const bodyParser = require('body-parser');
 const path = require('path');
 const http = require('http').Server(app);
 const PORT = process.env.PORT || 4000;
-require('dotenv').config(); // env
 const fs = require('fs');
 const bcrypt = require('bcrypt');
 const cors = require('cors');
 const session = require('express-session');
 let RedisStore = require('connect-redis')(session);
-const io = require('socket.io')(http, {
-  cors: {
-    // origin: origins_arr,
-    methods: ['GET', 'POST'],
-    credentials: true,
-  },
-  allowEIO3: true, // false by default
-});
 
 // CORS
-var corsOptions = {
-  optionsSuccessStatus: 200, // some legacy browsers (IE11, various SmartTVs) choke on 204
-  methods: ['GET', 'POST'],
-  credentials: true,
-};
-app.use(cors(corsOptions));
+let corsOptions = {
+    methods: ['GET', 'POST'],
+    credentials: true,
+    origin: ["http://localhost:8080", /\.example2\.com$/, /localhost$/], // works in subdomain of example2.com like testing.example2.com
+    optionsSuccessStatus: 200 // some legacy browsers (IE11, various SmartTVs) choke on 204
+}
+
+let corsMiddleware = (origin, callback) => {
+    callback("", corsOptions)
+}
+
+app.use(cors(corsMiddleware));
+const io = require('socket.io')(http, {
+    cors: corsMiddleware,
+    allowEIO3: true, // false by default
+});
+
+
 
 // Redis
 const redis = require('./config/redis');
@@ -257,19 +261,24 @@ app.get('/get_chatters', async function (req, res) {
 });
 
 // API - Login
-app.post('/login', async function (req, res) {
-  const data = req.body;
-  const savedData = await createUserAuth(data);
-  let user = {
-    id: savedData.agent_id,
-    email: savedData.email_agent,
-    name: savedData.name_agent,
-    company_name: savedData.company_name,
-    department_name: savedData.department_name,
-  };
-  req.session.user = user;
+app.get('/login', async function (req, res) {
+    /** Previous code (using post method) */
+    // const data = req.body;
+    // const savedData = await createUserAuth(data);
+    // let user = {
+    //     id: savedData.agent_id,
+    //     email: savedData.email_agent,
+    //     name: savedData.name_agent,
+    //     company_name: savedData.company_name,
+    //     department_name: savedData.department_name,
+    // };
+    // req.session.user = user;
 
+    /** Development using get method */
+    req.session.user = { name: req.query.name }
     console.log('#########', 'from login/sessionID', req.sessionID)
+    console.log('req body', req.body)
+    console.log('req query', req.query)
 
     return responseMessage(res, 200, "OK" )
 });

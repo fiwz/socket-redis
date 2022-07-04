@@ -25,30 +25,12 @@ const {
 } = require("../services/user-service")
 
 
-// const session = require("express-session");
-// let RedisStore = require("connect-redis")(session);
-
-// // Session Middleware
-// const sessionMiddleware = session({
-//     store: new RedisStore({ client: redisClient }),
-//     secret: "keyboard cat",
-//     saveUninitialized: true,
-//     resave: true,
-// });
-
-
 module.exports = async (io, socket) => {
     // console.log('==========', 'user socket id: ', socket.id)
-    // console.log('==========', 'user session', socket.request.session)
-    // console.log('==========', 'user session ID', socket.request.sessionID)
+    console.log('==========', 'user session', socket.request.session)
+    console.log('==========', 'user session ID', socket.request.sessionID)
     // console.log('===============', 'via handshake', socket.handshake)
     // console.log('session from redis', socket.handshake.sessionID, '=====>>>>>>', await redisClient.get(`sess:${socket.handshake.sessionID}`) )
-
-    // sessionMiddleware(socket.request, {}, async function(){
-    //     console.log('*********', 'session ID', socket.request.sessionID)
-    //     socket.request.session.save()
-    //     console.log('session from redis', await redisClient.get(`sess:${socket.request.sessionID}`) )
-    // })
 
     socket.on('reload', async (req=null) => {
         // Reload session to get updated client session
