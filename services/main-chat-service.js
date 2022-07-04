@@ -176,19 +176,44 @@ const getMessagesByChatId = async (id) => {
 
     chatListKey = await redisClient.zrange(roomCategory, 0, -1);
     if(chatListKey) {
+        // get participants
+        // code...
+
         for(let [idx, item] of chatListKey.entries()) {
             let bubbleExist = await redisClient.exists(item)
             chatListWithBubble[idx] = {
                 chat_id: item.split(':').pop(),
                 room: item,
-                chat_reply: []
+                chat_reply: [],
+                message: "",
+                formatted_date: "",
             }
 
             if(bubbleExist) {
                 let bubbles = await redisClient.call('JSON.GET', item)
-                chatListWithBubble[idx].chat_reply = JSON.parse(bubbles)
+                let parsedBubbles = JSON.parse(bubbles)
+
+                let latestMessageIndex = (parsedBubbles.length - 1)
+                let latestMessage = parsedBubbles[latestMessageIndex]
+                chatListWithBubble[idx] = {
+                    ...chatListWithBubble[idx],
+                    ...{
+                        chat_reply: parsedBubbles,
+                        message: latestMessage.message,
+                        formatted_date: latestMessage.formatted_date,
+                        // user/sender detail
+                        // agent name
+                        // agent email
+                        // agent avatar?
+                        // user name
+                        // user email
+                        // user avatar?
+                        // code...
+                    }
+                }
             }
-        }
+
+        } // end for
     }
 
     return chatListWithBubble
