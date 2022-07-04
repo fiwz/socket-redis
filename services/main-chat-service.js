@@ -310,7 +310,7 @@ const endChat = async(io, socket, data) => {
     }
     io.emit('chat.resolve', result)
 
-    return updatedData
+    return result
 }
 
 module.exports = {
