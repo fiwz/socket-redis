@@ -13,23 +13,27 @@ let RedisStore = require('connect-redis')(session);
 
 // CORS
 let corsOptions = {
-    methods: ['GET', 'POST'],
-    credentials: true,
-    origin: ["http://localhost:8080", /\.example2\.com$/, /localhost$/], // works in subdomain of example2.com like testing.example2.com
-    optionsSuccessStatus: 200 // some legacy browsers (IE11, various SmartTVs) choke on 204
-}
+  methods: ['GET', 'POST'],
+  credentials: true,
+  origin: [
+    'http://localhost:8080',
+    'http://localhost:3000',
+    'http://localhost:4000',
+    'ws://localhost:3000',
+    'ws://localhost:4000',
+  ], // works in subdomain of example2.com like testing.example2.com
+  optionsSuccessStatus: 200, // some legacy browsers (IE11, various SmartTVs) choke on 204
+};
 
 let corsMiddleware = (origin, callback) => {
-    callback("", corsOptions)
-}
+  callback('', corsOptions);
+};
 
 app.use(cors(corsMiddleware));
 const io = require('socket.io')(http, {
-    cors: corsMiddleware,
-    allowEIO3: true, // false by default
+  cors: corsMiddleware,
+  allowEIO3: true, // false by default
 });
-
-
 
 // Redis
 const redis = require('./config/redis');
@@ -52,19 +56,22 @@ const mainRouter = require('./routes/index-router');
 // app.use('/main-page', mainRouter)
 
 const { getCurrentDateTime } = require('./utils/helpers');
-const { createUserAuth, getCompanyOnlineUsers } = require('./services/user-service');
 const {
-    generateChatId,
-    getMessagesByChatId,
-    getPendingListByRoomKey
+  createUserAuth,
+  getCompanyOnlineUsers,
+} = require('./services/user-service');
+const {
+  generateChatId,
+  getMessagesByChatId,
+  getPendingListByRoomKey,
 } = require('./services/main-chat-service');
 
 // Session Middleware
 const sessionMiddleware = session({
-    store: new RedisStore({ client: redisClient }),
-    secret: 'keyboard cat',
-    saveUninitialized: true,
-    resave: true,
+  store: new RedisStore({ client: redisClient }),
+  secret: 'keyboard cat',
+  saveUninitialized: true,
+  resave: true,
 });
 
 const auth = (req, res, next) => {
@@ -79,7 +86,6 @@ const auth = (req, res, next) => {
 // io.use(sharedsession(sessionMiddleware, {
 //     autoSave:true
 // }));
-
 
 /** Store session in redis. */
 app.use(sessionMiddleware);
@@ -256,8 +262,8 @@ app.get('/get_chatters', async function (req, res) {
       });
     })
     .catch((error) => {
-        return responseData(res, 200, { numberOfChatters: 0, member_joined: []})
-    })
+      return responseData(res, 200, { numberOfChatters: 0, member_joined: [] });
+    });
 });
 
 // API - Login
@@ -289,41 +295,56 @@ app.post('/login', async function (req, res) {
 
 // API - Login Client
 app.post('/login-client', async function (req, res) {
-    let datetime = getCurrentDateTime();
-    let user = req.body;
-    let chatContent = {
-        created_at: datetime,
-        updated_at: datetime,
-        formatted_date: datetime,
-    };
+  let datetime = getCurrentDateTime();
+  let user = req.body;
+  let chatContent = {
+    created_at: datetime,
+    updated_at: datetime,
+    formatted_date: datetime,
+  };
 
-    req.session.user = user;
-    await redisClient.sadd(`company:${user.company_name}:online_clients`, user.email);
+  req.session.user = user;
+  await redisClient.sadd(
+    `company:${user.company_name}:online_clients`,
+    user.email
+  );
 
-    let chatId = generateChatId() // generate chatId
-    let chatRoom = `company:${user.company_name}:room:${chatId}`
-    let chatRoomMembersKey = chatRoom+':members'
-    let pendingDepartmentRoom = `company:${user.company_name}:dept:${user.department_name}:pending_chat_room`
-    chatContent = {...chatContent, ...{
-        from: user.email,
-        user_name: user.name,
-        message: user.message,
-        department_name: user.department_name,
-        topic_name: user.topic_name
-    }}
+  let chatId = generateChatId(); // generate chatId
+  let chatRoom = `company:${user.company_name}:room:${chatId}`;
+  let chatRoomMembersKey = chatRoom + ':members';
+  let pendingDepartmentRoom = `company:${user.company_name}:dept:${user.department_name}:pending_chat_room`;
+  chatContent = {
+    ...chatContent,
+    ...{
+      from: user.email,
+      user_name: user.name,
+      message: user.message,
+      department_name: user.department_name,
+      topic_name: user.topic_name,
+    },
+  };
 
-    let arrChatContent = [chatContent];
+  let arrChatContent = [chatContent];
 
-    // create room
-    let pendingRoomKey = `company:${user.company_name}:dept:${user.department_name}:pending_chats`
-    await redisClient.call('JSON.SET', chatRoom, '.', JSON.stringify(arrChatContent))
-    await redisClient.zadd(pendingRoomKey, getCurrentDateTime('unix'), chatRoom)
-    await redisClient.set(`client:${user.email}:rooms`, chatRoom)
-    await redisClient.zadd(chatRoomMembersKey, getCurrentDateTime('unix'), user.email)
+  // create room
+  let pendingRoomKey = `company:${user.company_name}:dept:${user.department_name}:pending_chats`;
+  await redisClient.call(
+    'JSON.SET',
+    chatRoom,
+    '.',
+    JSON.stringify(arrChatContent)
+  );
+  await redisClient.zadd(pendingRoomKey, getCurrentDateTime('unix'), chatRoom);
+  await redisClient.set(`client:${user.email}:rooms`, chatRoom);
+  await redisClient.zadd(
+    chatRoomMembersKey,
+    getCurrentDateTime('unix'),
+    user.email
+  );
 
-    // emit to room: pending chat per department
-    const pendingList = await getPendingListByRoomKey(pendingRoomKey)
-    mainNamespace.to(pendingDepartmentRoom).emit('chat.pending', pendingList);
+  // emit to room: pending chat per department
+  const pendingList = await getPendingListByRoomKey(pendingRoomKey);
+  mainNamespace.to(pendingDepartmentRoom).emit('chat.pending', pendingList);
 
     return responseData(res, 200, user)
 });
@@ -338,7 +359,7 @@ app.get(`/users/online/:companyName`, async (req, res) => {
     const users = await getCompanyOnlineUsers(mainNamespace, null, req)
     mainNamespace.emit('usersOnline', users);
 
-    return responseData(res, 200, users);
+  return responseData(res, 200, users);
 });
 
 app.get(`/clients/online/:companyName`, auth, async (req, res) => {
@@ -383,7 +404,7 @@ app.get('/:companyName/chats/pending', auth, async (req, res) => {
     pendingChats[idx] = pd;
   });
 
-    return responseData(res, 200, pendingChats)
+  return responseData(res, 200, pendingChats);
 });
 
 // API - send message example
