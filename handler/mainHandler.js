@@ -24,9 +24,9 @@ const {
 
 module.exports = async (io, socket) => {
   // console.log('==========', 'user session', socket.request.session);
-  console.log('A user is connected to socket')
+  console.log('A user is connected to socket');
 
-  await initAllConnectedUsers(io, socket);
+  await initAllConnectedUsers(io, socket, true);
 
   socket.on('reload', async (req = null) => {
     // Reload session to get updated client session
@@ -38,7 +38,7 @@ module.exports = async (io, socket) => {
 
       console.log('***************', 'reload socket', socket.request.session);
 
-      await initAllConnectedUsers(io, socket, true) // with return data)
+      await initAllConnectedUsers(io, socket, true); // with return data)
     });
   });
 
