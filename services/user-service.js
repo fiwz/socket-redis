@@ -129,8 +129,11 @@ const getCompanyOnlineUsers = async(io, socket=null, request=null) => {
 
                 onlineUsers[index] = sd.data.user
             }
+
+            io.to(companyOnlineUserRoom).emit('users.online', onlineUsers) // to all user in a company
         }
     }
+
     return onlineUsers
 }
 
