@@ -132,6 +132,7 @@ const getCompanyOnlineUsers = async(io, socket=null, request=null) => {
 
             io.to(companyOnlineUserRoom).emit('users.online', onlineUsers) // to all user in a company
         }
+
     }
 
     return onlineUsers
