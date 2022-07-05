@@ -61,7 +61,7 @@ const createUserAuth = async (data) => {
  * @param {*} io
  * @param {*} socket
  */
-const initAllConnectedUsers = async(io, socket) => {
+const initAllConnectedUsers = async(io, socket, withReturnData=false) => {
     if (socket.request.session.user !== undefined) {
         const user = socket.request.session.user
 
@@ -74,21 +74,21 @@ const initAllConnectedUsers = async(io, socket) => {
 
             userGetAndJoinRoom(socket)
 
-            const myChatList = await getAllChatList(socket)
-            const companyOnlineUsers = await getCompanyOnlineUsers(io, socket)
+            if(withReturnData) {
+                const myChatList = await getAllChatList(socket)
+                const companyOnlineUsers = await getCompanyOnlineUsers(io, socket)
 
-            let result = myChatList
-            result.online_users = companyOnlineUsers
+                let result = myChatList
+                result.online_users = companyOnlineUsers
 
-            /** Emit to FE */
-            let companyOnlineUserRoom = `company:${user.company_name}:online_user_room`
-            // Emit All Data
-            socket.emit('chat.onrefresh', result) // to all user
-            // io.to(companyOnlineUserRoom).emit('chat.onrefresh', result) // to all user in a company
+                /** Emit to FE */
+                let companyOnlineUserRoom = `company:${user.company_name}:online_user_room`
+                // Emit All Data
+                socket.emit('chat.onrefresh', result) // to all user
 
-            // Emit Online Users
-            // io.sockets.emit('users.online', companyOnlineUsers) // to all user
-            io.to(companyOnlineUserRoom).emit('users.online', companyOnlineUsers) // to all user in a company
+                // Emit Online Users
+                io.to(companyOnlineUserRoom).emit('users.online', companyOnlineUsers) // to all user in a company
+            }
         } else { // If client
             clientGetAndJoinRoom(socket)
 

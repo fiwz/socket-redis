@@ -23,13 +23,13 @@ const {
 } = require('../services/user-service');
 
 module.exports = async (io, socket) => {
-  //   console.log('==========', 'user session', socket.request.session);
+  // console.log('==========', 'user session', socket.request.session);
+  console.log('A user is connected to socket')
 
   await initAllConnectedUsers(io, socket);
 
   socket.on('reload', async (req = null) => {
     // Reload session to get updated client session
-
     socket.request.session.reload(async (err) => {
       if (err) {
         console.log('error reload in socket: ', err);
@@ -37,8 +37,8 @@ module.exports = async (io, socket) => {
       }
 
       console.log('***************', 'reload socket', socket.request.session);
-      await userGetAndJoinRoom(socket);
-      const companyOnlineUsers = await getCompanyOnlineUsers(io, socket);
+
+      await initAllConnectedUsers(io, socket, true) // with return data)
     });
   });
 
