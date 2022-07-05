@@ -268,29 +268,32 @@ app.get('/get_chatters', async function (req, res) {
 
 // API - Login
 app.post('/login', async function (req, res) {
-    const data = req.body;
-    const savedData = await createUserAuth(data); // Save all data to redis
+  const data = req.body;
+  const savedData = await createUserAuth(data); // Save all data to redis
+  console.log('saveData:', savedData);
+  // Save some data to session
+  let user = {
+    id: savedData.agent_id,
+    email: savedData.email_agent,
+    name: savedData.name_agent,
+    avatar: savedData.avatar,
+    id_permission: savedData.id_permission,
+    phone: savedData.phone_agent,
+    company_name: savedData.company_name,
+    department_name: savedData.department_name,
+  };
+  req.session.user = user;
 
-    // Save some data to session
-    let user = {
-        id: savedData.agent_id,
-        email: savedData.email_agent,
-        name: savedData.name_agent,
-        company_name: savedData.company_name,
-        department_name: savedData.department_name,
-    };
-    req.session.user = user;
-
-    req.session.save( function(err) {
-        req.session.reload( function (err) {
-            if(err){
-                console.log('error reload', err)
-                return socket.disconnect();
-            }
-        });
+  req.session.save(function (err) {
+    req.session.reload(function (err) {
+      if (err) {
+        console.log('error reload', err);
+        return socket.disconnect();
+      }
     });
+  });
 
-    return responseMessage(res, 200, "OK" )
+  return responseMessage(res, 200, 'OK');
 });
 
 // API - Login Client
@@ -346,7 +349,7 @@ app.post('/login-client', async function (req, res) {
   const pendingList = await getPendingListByRoomKey(pendingRoomKey);
   mainNamespace.to(pendingDepartmentRoom).emit('chat.pending', pendingList);
 
-    return responseData(res, 200, user)
+  return responseData(res, 200, user);
 });
 
 // API - Login Info
@@ -356,8 +359,8 @@ app.get('/login-info', auth, async function (req, res) {
 
 // app.get(`/users/online/:companyName`, auth, async (req, res) => {
 app.get(`/users/online/:companyName`, async (req, res) => {
-    const users = await getCompanyOnlineUsers(mainNamespace, null, req)
-    mainNamespace.emit('usersOnline', users);
+  const users = await getCompanyOnlineUsers(mainNamespace, null, req);
+  mainNamespace.emit('usersOnline', users);
 
   return responseData(res, 200, users);
 });
