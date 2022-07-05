@@ -19,6 +19,7 @@ let corsOptions = {
     'http://localhost:8080',
     'http://localhost:3000',
     'http://localhost:4000',
+    'http://localhost:8081',
     'ws://localhost:3000',
     'ws://localhost:4000',
   ], // works in subdomain of example2.com like testing.example2.com
@@ -80,12 +81,6 @@ const auth = (req, res, next) => {
   }
   next();
 };
-
-// var sharedsession = require("express-socket.io-session");
-// app.use(sessionMiddleware);
-// io.use(sharedsession(sessionMiddleware, {
-//     autoSave:true
-// }));
 
 /** Store session in redis. */
 app.use(sessionMiddleware);
