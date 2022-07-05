@@ -26,50 +26,22 @@ const {
 
 
 module.exports = async (io, socket) => {
-    // console.log('==========', 'user socket id: ', socket.id)
     console.log('==========', 'user session', socket.request.session)
-    console.log('==========', 'user session ID', socket.request.sessionID)
-    // console.log('===============', 'via handshake', socket.handshake)
-    // console.log('session from redis', socket.handshake.sessionID, '=====>>>>>>', await redisClient.get(`sess:${socket.handshake.sessionID}`) )
-
-    socket.on('reload', async (req=null) => {
-        // Reload session to get updated client session
-        socket.request.session.reload((err) => {
-            if (err) {
-              return socket.disconnect();
-            }
-            console.log('***************', 'reload socket', socket.request.session)
-            userGetAndJoinRoom(socket)
-        });
-
-    })
 
     await initAllConnectedUsers(io, socket)
 
-    /**
-     * User (Agent) Login
-     *
-     * Refresh/reload socket session on login
-     */
-    socket.on('user.login', async(request) => {
-        // sessionMiddleware(socket.request, {}, async function(){
-        //     // console.log('*********', 'session ID', socket.request.sessionID)
-        //     socket.request.session.user = "{'name': 'fia'}"
-        //     socket.request.session.save()
-        //     console.log('session from redis', await redisClient.get(`sess:${socket.request.sessionID}`) )
-        // })
-
-        // socket.handshake.session.userdata = request
-        // socket.handshake.session.save();
-        // console.log('###############', socket.handshake)
-
-        await socket.request.session.reload((err) => {
+    socket.on('reload', async (req=null) => {
+        // Reload session to get updated client session
+        socket.request.session.reload(async (err) => {
             if (err) {
-              return socket.disconnect();
+                console.log('error reload in socket: ', err)
+                return socket.disconnect();
             }
-            console.log('***************', 'LOGIN: reload socket', socket.request.session)
-            userGetAndJoinRoom(socket)
+            console.log('***************', 'reload socket', socket.request.session)
+            await userGetAndJoinRoom(socket)
+            const companyOnlineUsers = await getCompanyOnlineUsers(io, socket)
         });
+
     })
 
     /**
@@ -118,7 +90,7 @@ module.exports = async (io, socket) => {
     socket.on('allData', async() => {
         if (socket.request.session.user !== undefined) {
             const myChatList = await getAllChatList(socket)
-            const companyOnlineUsers = await getCompanyOnlineUsers(socket)
+            const companyOnlineUsers = await getCompanyOnlineUsers(io, socket)
 
             let result = myChatList
             result.online_users = companyOnlineUsers
@@ -131,8 +103,6 @@ module.exports = async (io, socket) => {
         // leave room based on user
         // code...
 
-        console.log('disconnect sesss', socket.request.session.user)
-
         if (socket.request.session.user !== undefined) {
             const user = socket.request.session.user;
             if(user.id) {
@@ -143,7 +113,7 @@ module.exports = async (io, socket) => {
 
                 // Emit to FE
                 // Get Latest Online Users
-                const companyOnlineUsers = await getCompanyOnlineUsers(socket)
+                const companyOnlineUsers = await getCompanyOnlineUsers(io, socket)
                 io.to(companyOnlineUserRoom).emit('users.offline', companyOnlineUsers)
 
                 console.log('user is offline: ', user.id)

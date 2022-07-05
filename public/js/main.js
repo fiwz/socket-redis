@@ -1,5 +1,5 @@
 $(() => {
-const socket = io('http://localhost:4000');
+const socket = io('http://localhost:4001');
 // const socket = io('http://localhost:4000/agents');
 // const socket = io.connect('http://localhost:4000', {query: 'name=something'}, {auth: "{'foo':'bar'}" });
 
@@ -176,15 +176,12 @@ $('#btn-login').click(function() {
     $.ajax({
         url: '/login',
         type: 'POST',
-        data: dataAuth,
+        data: dataAuth2,
         success: function(response) {
             showLoginInfo()
-            socket.emit('user.login')
+            socket.emit('reload') // reload socket session
         }
     });
-
-    // for debug issue session
-    // socket.emit('user.login', dataAuth)
 });
 
 /**

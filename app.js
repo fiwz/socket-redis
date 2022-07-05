@@ -263,7 +263,9 @@ app.get('/get_chatters', async function (req, res) {
 // API - Login
 app.post('/login', async function (req, res) {
     const data = req.body;
-    const savedData = await createUserAuth(data);
+    const savedData = await createUserAuth(data); // Save all data to redis
+
+    // Save some data to session
     let user = {
         id: savedData.agent_id,
         email: savedData.email_agent,
@@ -272,6 +274,15 @@ app.post('/login', async function (req, res) {
         department_name: savedData.department_name,
     };
     req.session.user = user;
+
+    req.session.save( function(err) {
+        req.session.reload( function (err) {
+            if(err){
+                console.log('error reload', err)
+                return socket.disconnect();
+            }
+        });
+    });
 
     return responseMessage(res, 200, "OK" )
 });
@@ -314,8 +325,6 @@ app.post('/login-client', async function (req, res) {
     const pendingList = await getPendingListByRoomKey(pendingRoomKey)
     mainNamespace.to(pendingDepartmentRoom).emit('chat.pending', pendingList);
 
-    // console.log('================', 'session login api', req.sessionID)
-
     return responseData(res, 200, user)
 });
 
@@ -326,8 +335,7 @@ app.get('/login-info', auth, async function (req, res) {
 
 // app.get(`/users/online/:companyName`, auth, async (req, res) => {
 app.get(`/users/online/:companyName`, async (req, res) => {
-//   const companyName = req.params.companyName; // param is no longer used
-    const users = await getCompanyOnlineUsers(null, req)
+    const users = await getCompanyOnlineUsers(mainNamespace, null, req)
     mainNamespace.emit('usersOnline', users);
 
     return responseData(res, 200, users);

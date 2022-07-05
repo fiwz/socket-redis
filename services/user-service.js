@@ -75,7 +75,7 @@ const initAllConnectedUsers = async(io, socket) => {
             userGetAndJoinRoom(socket)
 
             const myChatList = await getAllChatList(socket)
-            const companyOnlineUsers = await getCompanyOnlineUsers(socket)
+            const companyOnlineUsers = await getCompanyOnlineUsers(io, socket)
 
             let result = myChatList
             result.online_users = companyOnlineUsers
@@ -98,24 +98,39 @@ const initAllConnectedUsers = async(io, socket) => {
     }
 }
 
-const getCompanyOnlineUsers = async(socket=null, request=null) => {
+const getCompanyOnlineUsers = async(io, socket=null, request=null) => {
     let onlineUsers = []
-    let sourceAuthData = socket ? socket.request : request
+    let sourceAuthData = socket ? socket.request.session : request.session
 
-    if (sourceAuthData.session.user !== undefined) {
-        const user = sourceAuthData.session.user
-        let companyOnlineUsersKey = `company:${user.company_name}:online_users`
+    if (sourceAuthData.user !== undefined) {
+        const user = sourceAuthData.user
 
-        let isMemberExists = await redisClient.zrange(companyOnlineUsersKey, 0, -1)
-        if(isMemberExists) {
-            for(let [idx, member] of isMemberExists.entries()) {
-                let memberDetailKey = await redisClient.hgetall(`user:${member}`)
-                if(memberDetailKey)
-                    onlineUsers[idx] = memberDetailKey
+        // via Redis
+        // let companyOnlineUsersKey = `company:${user.company_name}:online_users`
+        // let isMemberExists = await redisClient.zrange(companyOnlineUsersKey, 0, -1)
+        // if(isMemberExists) {
+        //     for(let [idx, member] of isMemberExists.entries()) {
+        //         let memberDetailKey = await redisClient.hgetall(`user:${member}`)
+        //         if(memberDetailKey)
+        //             onlineUsers[idx] = memberDetailKey
+        //     }
+        // }
+
+        // via Socket Room
+        let companyOnlineUserRoom = `company:${user.company_name}:online_user_room`
+        const socketsData = await io.in(companyOnlineUserRoom).fetchSockets()
+        if(socketsData) {
+            for (let [index, sd] of socketsData.entries()) {
+                // dev debug
+                // console.log('sd.id', sd.id);
+                // console.log('sd.handshake', sd.handshake);
+                // console.log('sd.rooms', sd.rooms);
+                // console.log('sd.data', sd.data);
+
+                onlineUsers[index] = sd.data.user
             }
         }
     }
-
     return onlineUsers
 }
 
@@ -145,22 +160,26 @@ const clientGetAndJoinRoom = async (socket) => {
  const userGetAndJoinRoom = async (socket) => {
     const user = socket.request.session.user
 
-    // Join On Going Chat Room
-    const userRooms = await redisClient.zrange(`user:${user.id}:rooms`, 0, -1)
-    for(let item of userRooms) {
-        socket.join(item)
-        console.log('User joined: ', item)
+    if(user.id) {
+        // Join On Going Chat Room
+        const userRooms = await redisClient.zrange(`user:${user.id}:rooms`, 0, -1)
+        for(let item of userRooms) {
+            socket.join(item)
+            console.log('User joined: ', item)
+        }
+
+        // Join Company Online User Room
+        let companyOnlineUserRoom = `company:${user.company_name}:online_user_room`
+        socket.join(companyOnlineUserRoom)
+
+        // Join Department Room
+        // Agent will get notified if there is new pending chat
+        let pendingDepartmentRoom = `company:${user.company_name}:dept:${user.department_name}:pending_chat_room`
+        socket.join(pendingDepartmentRoom)
+
+        // Save user data to socket data
+        socket.data.user = user
     }
-
-    // Join Company Online User Room
-    let companyOnlineUserRoom = `company:${user.company_name}:online_user_room`
-    socket.join(companyOnlineUserRoom)
-
-    // Join Department Room
-    // Agent will get notified if there is new pending chat
-    let pendingDepartmentRoom = `company:${user.company_name}:dept:${user.department_name}:pending_chat_room`
-    socket.join(pendingDepartmentRoom)
-    // console.log('existing room:', socket.rooms)
 }
 
 const userInsertAndJoinRoom = async(socket, id) => {
