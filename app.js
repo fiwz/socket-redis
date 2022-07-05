@@ -270,7 +270,6 @@ app.get('/get_chatters', async function (req, res) {
 app.post('/login', async function (req, res) {
   const data = req.body;
   const savedData = await createUserAuth(data); // Save all data to redis
-  console.log('saveData:', savedData);
   // Save some data to session
   let user = {
     id: savedData.agent_id,
