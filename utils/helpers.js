@@ -2,7 +2,7 @@ const moment = require('moment');
 
 const getCurrentDateTime = (type=null) => {
     let currentDate = moment().utc().utcOffset(+7)
-    let date = currentDate.format('YYYY-MM-DD h:mm:ss') // WIB
+    let date = currentDate.format('YYYY-MM-DD HH:mm:ss') // WIB
     // if locale is set moment().utc().utcOffset(process.env.TIMEZONE).format('YYYY-MM-DD h:mm:ss')
 
     if(type === 'unix') {
