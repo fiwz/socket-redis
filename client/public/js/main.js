@@ -1,5 +1,6 @@
 $(() => {
-  const socket = io('http://localhost:4000', {
+  const BASE_URL = 'http://localhost:4000'
+  const socket = io(BASE_URL, {
     withCredentials: true,
     autoConnect: true,
     allowEIO3: false,
@@ -61,13 +62,13 @@ $(() => {
     };
 
     // With fetch
-    const response = fetch('http://localhost:4000/login?name=Bobi', {
+    const response = fetch(`${BASE_URL}+/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(dataAuth),
       credentials: 'include',
     }).then((response) => {
-      console.log('response login client', response);
+      console.log('Login as agent response: ', response);
       socket.connect();
       socket.emit('reload');
     });
@@ -90,7 +91,7 @@ $(() => {
     };
 
     axios
-      .post('http://localhost:4000/login-client', JSON.stringify(allData), {
+      .post(`${BASE_URL}+/login-client`, JSON.stringify(allData), {
         headers: {
           'Content-Type': 'application/json',
         },
@@ -98,8 +99,11 @@ $(() => {
         // other configuration there
       })
       .then(function (response) {
-        console.log('Login client response: ', response.data);
+        console.log('Login as client response: ', response.data);
         showLoginInfo();
+
+        socket.connect();
+        socket.emit('reload');
 
         // emit after success
         socket.emit('chat.new', allData);
@@ -111,12 +115,12 @@ $(() => {
       })
       .catch(function (error) {
         alert('oops');
-        console.log(error);
+        console.error(error);
       });
   });
 
   function showLoginInfo() {
-    fetch('http://localhost:4000/login-info', {
+    fetch(`${BASE_URL}+/login-info`, {
       method: 'GET',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
@@ -132,7 +136,6 @@ $(() => {
           $('.login-client-info').removeClass('d-none');
           $('.login-client-info').addClass('d-block');
         } else {
-          console.log('di else');
           $('.login-info ul').html('');
           $('.login-info ul').append(`
                     <li>ID: ${response.data.id}</li>
@@ -151,7 +154,7 @@ $(() => {
 
   // Logout
   $('#btn-logout, #btn-logout-client').click(function () {
-    fetch('http://localhost:4000/logout', {
+    fetch(`${BASE_URL}+/logout`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
@@ -184,7 +187,7 @@ $(() => {
     }
 
     axios
-      .get(`http://localhost:4000/chat-details/${chatId}`, {
+      .get(`${BASE_URL}/chat-details/${chatId}`, {
         headers: {
           'Content-Type': 'application/json',
         },
@@ -192,7 +195,6 @@ $(() => {
         // other configuration there
       })
       .then(function (response) {
-        console.log('klik di pending', response);
         let message = response.data.data;
 
         $('#fetch-message').html('');
@@ -221,7 +223,7 @@ $(() => {
       })
       .catch(function (error) {
         alert('oops');
-        console.log(error);
+        console.error(error);
       });
   });
 
@@ -238,26 +240,37 @@ $(() => {
       chatId = roomArr.pop();
     }
 
-    $.get(`/chat-details/${chatId}`, function (response) {
-      let message = response.data;
-      $('#fetch-message').html('');
-      if (message.chat_reply) {
-        message.chat_reply.forEach((chat, idx) => {
-          $('#fetch-message').append(`
-                    <div style='margin-bottom: 8px;'>
-                        <p style='margin: 0px;'>${
-                          chat.agent_name ? chat.agent_name : chat.from
-                        }</p>
-                        <p style='margin: 0px;'>${chat.message}</p>
-                        <small>${chat.formatted_date}</small>
-                    </div
+    axios.get(`${BASE_URL}/chat-details/${chatId}`, {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        withCredentials: true,
+        // other configuration there
+      })
+      .then(function (response) {
+        let message = response.data.data;
+        $('#fetch-message').html('');
+        if (message.chat_reply) {
+            message.chat_reply.forEach((chat, idx) => {
+              $('#fetch-message').append(`
+                <div style='margin-bottom: 8px;'>
+                    <p style='margin: 0px;'>${
+                      chat.agent_name ? chat.agent_name : chat.from
+                    }</p>
+                    <p style='margin: 0px;'>${chat.message}</p>
+                    <small>${chat.formatted_date}</small>
+                </div
                 `);
-        });
+            });
 
-        // set input reply value
-        $('#chat-id').val(message.chat_id);
-      }
-    });
+            // set input reply value
+            $('#chat-id').val(message.chat_id);
+        }
+      })
+      .catch(function (error) {
+        alert('oops');
+        console.error(error);
+      });
   });
 
   $(document).on('click', '#my-chats #resolve ul li', function (e) {
@@ -268,23 +281,33 @@ $(() => {
       chatId = roomArr.pop();
     }
 
-    $.get(`/chat-details/${chatId}`, function (response) {
-      let message = response.data;
-      $('#fetch-message').html('');
-      if (message.chat_reply) {
-        message.chat_reply.forEach((chat, idx) => {
-          $('#fetch-message').append(`
+    axios.get(`${BASE_URL}/chat-details/${chatId}`, {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        withCredentials: true,
+        // other configuration there
+    })
+    .then(function (response) {
+        let message = response.data.data;
+        $('#fetch-message').html('');
+        if (message.chat_reply) {
+            message.chat_reply.forEach((chat, idx) => {
+                $('#fetch-message').append(`
                     <div style='margin-bottom: 8px;'>
-                        <p style='margin: 0px;'>${
-                          chat.agent_name ? chat.agent_name : chat.from
-                        }</p>
+                        <p style='margin: 0px;'>${chat.agent_name ? chat.agent_name : chat.from}</p>
                         <p style='margin: 0px;'>${chat.message}</p>
                         <small>${chat.formatted_date}</small>
                     </div
                 `);
-        });
-      }
+            });
+        } // end if
+    })
+    .catch(function (error) {
+        alert('oops');
+        console.error(error);
     });
+
   });
 
   /**
@@ -326,29 +349,6 @@ $(() => {
   socket.emit('allData');
   // })
 
-  /** Socket */
-
-  /**
-   * Old code but needed
-   * Do not remove
-   */
-  // socket.on('send', function(data) {
-  //     console.log('socket message in client', data)
-  //     var username = data.username;
-  //     var message = data.message;
-  //     var html = "<div class='msg'><div class='user'>" + username + "</div><div class='txt'>" + message + "</div></div>";
-  //     $('#messages').append(html);
-  // });
-
-  // socket.on('count_chatters', function(data) {
-  //     console.log('chatters count', data)
-  //     $('.chat-info').text("There are currently " + data.numberOfChatters + " people in the chat room");
-  //     $("#chat-member ul").html("")
-  //     data.member_joined.forEach(member => {
-  //         console.log('member', member)
-  //         $("#chat-member ul").append(`<li>${member}</li>`);
-  //     })
-  // });
 
   /**
    * Socket listening event starts here
@@ -361,12 +361,12 @@ $(() => {
    * Listening if there is new chat from client
    */
   socket.on('chat.pending', (message) => {
-    console.log('new pending msg', message);
+    console.log('Listen pending msg', message);
 
     $('#my-chats #pending ul').html('');
     for (let [index, chat] of message.entries()) {
       $('#my-chats #pending ul').append(
-        `<li class="list-group-item" id="${chat.chat_id}" >${chat.chat_id}</li>`
+        `<li class="list-group-item" id="${chat.chat_id}" >${chat.user_name} (${chat.user_email})</li>`
       );
     }
   });
@@ -378,44 +378,34 @@ $(() => {
    * Listening if there is new on going list
    */
   socket.on('chat.ongoing', (message) => {
+    console.log('Listen ongoing msg', message);
+
     // Reset on going list
-    if (message.ongoing) {
+    if (message) {
       $('#my-chats #ongoing ul').html('');
-      for (let [index, chat] of message.ongoing.entries()) {
+      for (let [index, chat] of message.entries()) {
         $('#my-chats #ongoing ul').append(
-          `<li class="list-group-item" id="${chat.chat_id}" >${chat.chat_id}</li>`
+          `<li class="list-group-item" id="${chat.chat_id}" >${chat.user_name} (${chat.user_email})</li>`
         );
       }
     }
 
     // Reset pending list
-    if (message.pending) {
-      $('#my-chats #pending ul').html('');
-      for (let [index, chat] of message.pending.entries()) {
-        $('#my-chats #pending ul').append(
-          `<li class="list-group-item" id="${chat.chat_id}" >${chat.chat_id}</li>`
-        );
-      }
-    }
+    // code...
   });
 
   socket.on('chat.resolve', (message) => {
+    console.log('Listen resolve msg', message);
+
     // Reset on going list
-    if (message.ongoing) {
-      $('#my-chats #ongoing ul').html('');
-      for (let [index, chat] of message.ongoing.entries()) {
-        $('#my-chats #ongoing ul').append(
-          `<li class="list-group-item" id="${chat.chat_id}" >${chat.chat_id}</li>`
-        );
-      }
-    }
+    // code...
 
     // Reset resolve list
-    if (message.resolve) {
+    if (message) {
       $('#my-chats #resolve ul').html('');
-      for (let [index, chat] of message.resolve.entries()) {
+      for (let [index, chat] of message.entries()) {
         $('#my-chats #resolve ul').append(
-          `<li class="list-group-item" id="${chat.chat_id}" >${chat.chat_id}</li>`
+          `<li class="list-group-item" id="${chat.chat_id}" >${chat.user_name} (${chat.user_email})</li>`
         );
       }
     }
@@ -458,43 +448,43 @@ $(() => {
    * Get all chat data in dashboard agent
    * (Try to refresh your browser!)
    */
-  socket.on('chat.onrefresh', (message) => {
-    console.log('chat chatlist on refresh result:', message);
+  // socket.on('chat.onrefresh', (message) => {
+  //   console.log('chat chatlist on refresh result:', message);
 
-    // pending
-    $('#my-chats #pending ul').html('');
-    if (message.pending) {
-      message.pending.forEach((chat, idx) => {
-        $('#my-chats #pending ul').append(
-          `<li class="list-group-item" id="${chat.chat_id}" >${chat.chat_id}</li>`
-        );
-      });
-    }
+  //   // pending
+  //   $('#my-chats #pending ul').html('');
+  //   if (message.pending) {
+  //     message.pending.forEach((chat, idx) => {
+  //       $('#my-chats #pending ul').append(
+  //         `<li class="list-group-item" id="${chat.chat_id}" >${chat.chat_id}</li>`
+  //       );
+  //     });
+  //   }
 
-    // on going
-    $('#my-chats #ongoing ul').html('');
-    if (message.ongoing) {
-      message.ongoing.forEach((chat, idx) => {
-        $('#my-chats #ongoing ul').append(
-          `<li class="list-group-item" id="${chat.chat_id}" >${chat.chat_id}</li>`
-        );
-      });
-    }
+  //   // on going
+  //   $('#my-chats #ongoing ul').html('');
+  //   if (message.ongoing) {
+  //     message.ongoing.forEach((chat, idx) => {
+  //       $('#my-chats #ongoing ul').append(
+  //         `<li class="list-group-item" id="${chat.chat_id}" >${chat.chat_id}</li>`
+  //       );
+  //     });
+  //   }
 
-    // resolve
-    $('#my-chats #resolve ul').html('');
-    if (message.resolve) {
-      message.resolve.forEach((chat, idx) => {
-        $('#my-chats #resolve ul').append(
-          `<li class="list-group-item" id="${chat.chat_id}" >${chat.chat_id}</li>`
-        );
-      });
-    }
+  //   // resolve
+  //   $('#my-chats #resolve ul').html('');
+  //   if (message.resolve) {
+  //     message.resolve.forEach((chat, idx) => {
+  //       $('#my-chats #resolve ul').append(
+  //         `<li class="list-group-item" id="${chat.chat_id}" >${chat.chat_id}</li>`
+  //       );
+  //     });
+  //   }
 
-    // online agents
-    // code...
-    console.log('Online users in my company: ', message.online_users);
-  });
+  //   // online agents
+  //   // code...
+  //   console.log('Online users in my company: ', message.online_users);
+  // });
 
   /**
    * New online agent (user)
