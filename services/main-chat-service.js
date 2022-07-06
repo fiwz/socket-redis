@@ -176,17 +176,25 @@ const getMessagesByChatId = async (id) => {
 
     chatListKey = await redisClient.zrange(roomCategory, 0, -1);
     if(chatListKey) {
-        // get participants
-        // code...
-
+        // Mapping data for every chat id (room)
         for(let [idx, item] of chatListKey.entries()) {
             let bubbleExist = await redisClient.exists(item)
             chatListWithBubble[idx] = {
+                // chat_reply: [],
+                agent_email: null,
+                agent_id: null,
+                agent_name: null,
+                agent_uuid: null,
                 chat_id: item.split(':').pop(),
+                department_name: null,
+                formatted_date: null,
+                message: null,
                 room: item,
-                chat_reply: [],
-                message: "",
-                formatted_date: "",
+                topic_name: null,
+                user_avatar: null,
+                user_email: null,
+                user_name: null,
+                user_phone: null,
             }
 
             if(bubbleExist) {
@@ -198,19 +206,28 @@ const getMessagesByChatId = async (id) => {
                 chatListWithBubble[idx] = {
                     ...chatListWithBubble[idx],
                     ...{
-                        chat_reply: parsedBubbles,
-                        message: latestMessage.message,
+                        // chat_reply: parsedBubbles,
                         formatted_date: latestMessage.formatted_date,
-                        // user/sender detail
-                        // agent name
-                        // agent email
-                        // agent avatar?
-                        // user name
-                        // user email
-                        // user avatar?
-                        // code...
+                        message: latestMessage.message,
+                        user_email: latestMessage.from,
+                        user_name: latestMessage.user_name,
+                        user_phone: latestMessage.phone ? latestMessage.phone : null,
+                        department_name: latestMessage.department_name,
+                        topic_name: latestMessage.topic_name,
                     }
                 }
+            }
+
+            // Set Agent Key
+            let chatRoomMembersKey = `${item}:members`
+            let agentsInChatRoom = await redisClient.zrange(chatRoomMembersKey, 1, -1) // start from index 1
+            if(agentsInChatRoom) {
+                let agentId = agentsInChatRoom.pop()
+                let agentDataKey = `user:${agentId}`
+                let agentData = await redisClient.hgetall(agentDataKey)
+                chatListWithBubble[idx].agent_email = agentData.email_agent ? agentData.email_agent : null
+                chatListWithBubble[idx].agent_id = agentData.agent_id ? agentData.agent_id : null
+                chatListWithBubble[idx].agent_name = agentData.name_agent ? agentData.name_agent : null
             }
 
         } // end for
