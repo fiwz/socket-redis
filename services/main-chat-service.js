@@ -200,20 +200,21 @@ const getMessagesByChatId = async (id) => {
             if(bubbleExist) {
                 let bubbles = await redisClient.call('JSON.GET', item)
                 let parsedBubbles = JSON.parse(bubbles)
-
+                let firstMessage = parsedBubbles[0]
                 let latestMessageIndex = (parsedBubbles.length - 1)
                 let latestMessage = parsedBubbles[latestMessageIndex]
+
                 chatListWithBubble[idx] = {
                     ...chatListWithBubble[idx],
                     ...{
                         // chat_reply: parsedBubbles,
                         formatted_date: latestMessage.formatted_date,
                         message: latestMessage.message,
-                        user_email: latestMessage.from,
-                        user_name: latestMessage.user_name,
-                        user_phone: latestMessage.phone ? latestMessage.phone : null,
-                        department_name: latestMessage.department_name,
-                        topic_name: latestMessage.topic_name,
+                        user_email: firstMessage.from,
+                        user_name: firstMessage.user_name,
+                        user_phone: firstMessage.phone ? firstMessage.phone : null,
+                        department_name: firstMessage.department_name,
+                        topic_name: firstMessage.topic_name,
                     }
                 }
             }
@@ -350,7 +351,10 @@ const endChat = async(io, socket, data) => {
         ongoing: ongoingList,
         message: `End chat for chat id ${chatId}`
     }
-    io.emit('chat.resolve', result)
+
+    /** Emit to FE */
+    io.emit('chat.resolve', listResolve)
+    io.emit('chat.ongoing', ongoingList)
 
     return result
 }

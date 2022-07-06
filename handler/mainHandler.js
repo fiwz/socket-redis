@@ -47,7 +47,8 @@ module.exports = async (io, socket) => {
    */
   socket.on('room.join', async (id) => {
     const joinedRoom = await userInsertAndJoinRoom(socket, id);
-    io.to(socket.id).emit('chat.ongoing', joinedRoom); // Emit to agent's on going list
+    io.to(socket.id).emit('chat.ongoing', joinedRoom.ongoing); // Emit to agent's on going list
+    io.to(socket.id).emit('chat.pending', joinedRoom.pending); // Emit to agent's pending list
   });
 
   /**
