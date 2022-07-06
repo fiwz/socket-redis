@@ -62,7 +62,7 @@ $(() => {
     };
 
     // With fetch
-    const response = fetch(`${BASE_URL}+/login`, {
+    const response = fetch(`${BASE_URL}/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(dataAuth),
@@ -91,7 +91,7 @@ $(() => {
     };
 
     axios
-      .post(`${BASE_URL}+/login-client`, JSON.stringify(allData), {
+      .post(`${BASE_URL}/login-client`, JSON.stringify(allData), {
         headers: {
           'Content-Type': 'application/json',
         },
@@ -120,7 +120,7 @@ $(() => {
   });
 
   function showLoginInfo() {
-    fetch(`${BASE_URL}+/login-info`, {
+    fetch(`${BASE_URL}/login-info`, {
       method: 'GET',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
@@ -154,7 +154,7 @@ $(() => {
 
   // Logout
   $('#btn-logout, #btn-logout-client').click(function () {
-    fetch(`${BASE_URL}+/logout`, {
+    fetch(`${BASE_URL}/logout`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
