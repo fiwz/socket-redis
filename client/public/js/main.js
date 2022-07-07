@@ -364,6 +364,14 @@ $(() => {
    * Socket listening event starts here
    */
 
+   /**
+    * Result of Agent Join Room
+    */
+    socket.on('room.joinresult', (message) => {
+        console.log('Listen room.joinresult: ', message)
+        alert('Listen room.joinresult: ', message)
+    })
+
   /**
    * Pending Chat
    *

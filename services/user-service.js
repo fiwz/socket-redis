@@ -158,15 +158,19 @@ const getCompanyOnlineUsers = async (io, socket = null, request = null) => {
  * Get client room and join client to existing room
  */
 const clientGetAndJoinRoom = async (socket) => {
-  let clientRoomKey = `client:${socket.request.session.user.email}:rooms`;
-  let clientRoomId = await redisClient.get(clientRoomKey);
-  socket.join(clientRoomId);
+    let clientSessionData = socket.request.session.user
+    let clientRoomKey = `client:${clientSessionData.email}:rooms`;
+    let clientRoomId = await redisClient.get(clientRoomKey);
+    socket.join(clientRoomId);
 
-  // insert room yg diklik ke list room milik agent
-  // add user to room:QBFCL1656301812:members (optional)
-  // code...
+    // Save client data to socket data
+    socket.data.user = clientSessionData;
 
-  return `Client has joined: ${clientRoomId}`;
+    // insert room yg diklik ke list room milik agent
+    // add user to room:QBFCL1656301812:members (optional)
+    // code...
+
+    return `Client has joined: ${clientRoomId}`;
 };
 
 /**
@@ -202,6 +206,16 @@ const userGetAndJoinRoom = async (socket) => {
     // Join Pending Transfer to Agent's Room
     let pendingTransferAgentRoom = `user:${user.id}:pending_transfer_chat_room`;
     socket.join(pendingTransferAgentRoom);
+
+    // Join Pending Transfer Members Room
+    // Means that agent has ever handled the chat before chat is transferred
+    let pendingTransferMemberRoomKey = `user:${user.id}:pending_transfer_socket_room`
+    let pendingTransferMemberRoom = await redisClient.zrange(pendingTransferMemberRoomKey, 0, -1)
+    if(pendingTransferMemberRoom || pendingTransferMemberRoom.length > 0) {
+        for (let item of pendingTransferMemberRoom) {
+            socket.join(item);
+        }
+    }
 
     // Save user data to socket data
     socket.data.user = user;
@@ -240,14 +254,26 @@ const userInsertAndJoinRoom = async (io, socket, id) => {
     roomId = existingKeys[0] // return the first keys
     chatResult.room = roomId
     chatRoomMembersKey = `${roomId}:members`
+    let unixtime = getCurrentDateTime('unix')
     socket.join(roomId)
 
     // Insert room id to "agent's on going rooms"
     let userRoomsKey = `user:${user.id}:rooms`
-    await redisClient.zadd(userRoomsKey, getCurrentDateTime('unix'), roomId)
+    await redisClient.zadd(userRoomsKey, unixtime, roomId)
 
     // Add agent id to "room members"
-    await redisClient.zadd(chatRoomMembersKey, getCurrentDateTime('unix'), user.id)
+    await redisClient.zadd(chatRoomMembersKey, unixtime, user.id)
+
+    // Add agent to "room id pending transfer member"
+    // In case chat would be transferred
+    // This key would be deleted when end chat
+    let pendingChatTransferMemberKey = `${roomId}:pending_transfer_members`
+    await redisClient.zadd(pendingChatTransferMemberKey, unixtime, user.id)
+    await redisClient.zadd(`user:${user.id}:pending_transfer_socket_room`, unixtime, pendingChatTransferMemberKey)
+    socket.join(pendingChatTransferMemberKey)
+    // add to redis user:49:member_of_pending_transfer_chat_room
+    // zadd user:49:member_of_pending_transfer_chat_room `${roomId}:pending_transfer_members`
+    // get user:49:member_of_pending_transfer_chat_room, then loop and join agent to that room
 
     // Get message bubbles
     let messageDetail = await getMessagesByChatId(chatId)
@@ -286,6 +312,7 @@ const userInsertAndJoinRoom = async (io, socket, id) => {
         ongoing: ongoingList,
         pending: pendingList,
         pendingtransfer: pendingTransferList,
+        success: true,
     }
 
     /**
@@ -294,6 +321,10 @@ const userInsertAndJoinRoom = async (io, socket, id) => {
     io.to(socket.id).emit('chat.ongoing', ongoingList)
     io.to(socket.id).emit('chat.pending', pendingList)
     io.to(socket.id).emit('chat.pendingtransfer', pendingTransferList)
+    io.to(socket.id).emit('room.joinresult', {
+        message: result.message,
+        success: result.success
+    })
 
     return result
 }
