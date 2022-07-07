@@ -8,8 +8,10 @@ const sub = redis.sub;
 const {
   getAllChatList,
   getClientChatList,
+  getMessagesByChatId,
   getOngoingListByUser,
   getPendingListByUser,
+  getPendingTransferListByUser,
 } = require('../services/main-chat-service');
 
 const { getCurrentDateTime, slugify } = require('../utils/helpers');
@@ -96,6 +98,7 @@ const initAllConnectedUsers = async (io, socket, withReturnData = false) => {
         socket.emit('chat.pending', myChatList.pending);
         socket.emit('chat.ongoing', myChatList.ongoing);
         socket.emit('chat.resolve', myChatList.resolve);
+        socket.emit('chat.pendingtransfer', myChatList.pendingtransfer);
 
         // Emit Online Users
         io.to(companyOnlineUserRoom).emit('users.online', companyOnlineUsers); // to all user in a company
@@ -192,96 +195,108 @@ const userGetAndJoinRoom = async (socket) => {
     let pendingDepartmentRoom = `company:${user.company_name}:dept:${user.department_name}:pending_chat_room`;
     socket.join(pendingDepartmentRoom);
 
+    // Join Pending Transfer to Department Room
+    let pendingTransferDepartmentRoom = `company:${user.company_name}:dept:${user.department_name}:pending_transfer_chat_room`;
+    socket.join(pendingTransferDepartmentRoom);
+
+    // Join Pending Transfer to Agent's Room
+    let pendingTransferAgentRoom = `user:${user.id}:pending_transfer_chat_room`;
+    socket.join(pendingTransferAgentRoom);
+
     // Save user data to socket data
     socket.data.user = user;
   }
 };
 
-const userInsertAndJoinRoom = async (socket, id) => {
-  if (socket.request.session.user === undefined) {
-    return {
-      data: roomId,
-      message: 'Failed join into chat room. Please login to continue',
-    };
-  }
-
-  const user = socket.request.session.user;
-  const chatId = id;
-  let roomId = '';
-  let chatRoomMembersKey = '';
-  let chatResult = {
-    chat_id: chatId,
-    room: roomId,
-    chat_reply: [],
-  };
-
-  // check if keys exists
-  let existingKeys = await redisClient.keys(`*room:${chatId}`);
-  if (existingKeys.length < 0) {
-    console.error('userJoinRoom: empty keys');
-    return {
-      data: roomId,
-      message: 'Failed join into chat room',
-    };
-  }
-
-  // insert agent to room
-  roomId = existingKeys[0]; // return the first keys
-  chatResult.room = roomId;
-  chatRoomMembersKey = roomId + ':members';
-  socket.join(roomId);
-  console.log('someone join room', roomId);
-  console.log('existing room:', socket.rooms);
-
-  // insert room to user's list rooms
-  let userRoomsKey = `user:${user.id}:rooms`;
-  await redisClient.zadd(userRoomsKey, getCurrentDateTime('unix'), roomId);
-
-  // add user to room:QBFCL1656301812:members (optional)
-  // await redisClient.sadd(chatRoomMembersKey, idAgent)
-  await redisClient.zadd(
-    chatRoomMembersKey,
-    getCurrentDateTime('unix'),
-    user.id
-  );
-
-  // get message bubbles
-  let bubbles = await redisClient.call('JSON.GET', roomId);
-  bubbles = JSON.parse(bubbles);
-  chatResult.chat_reply = bubbles;
-
-  let currentDepartmentName = bubbles[0].department_name;
-  let currentCompanyName = user.company_name;
-  let pendingChatInDepartment = `company:${currentCompanyName}:dept:${currentDepartmentName}:pending_chats`;
-
-  // check if room is in pending list by department
-  let isExistsInPending = await redisClient.zrank(
-    pendingChatInDepartment,
-    roomId
-  );
-  if (isExistsInPending || isExistsInPending == 0) {
-    let removeKeyInPending = await redisClient.zrem(
-      pendingChatInDepartment,
-      roomId
-    );
-    if (removeKeyInPending) {
-      console.log(`success remove ${roomId} from ${pendingChatInDepartment}`);
-    } else {
-      console.error(`error remove ${roomId} from ${pendingChatInDepartment}`);
+const userInsertAndJoinRoom = async (io, socket, id) => {
+    if (socket.request.session.user === undefined) {
+        return {
+            data: roomId,
+            message: 'Failed join into chat room. Please login to continue',
+        }
     }
-  }
 
-  let pendingList = await getPendingListByUser(socket);
-  let ongoingList = await getOngoingListByUser(socket);
-  let result = {
-    pending: pendingList,
-    ongoing: ongoingList,
-    chat_detail: chatResult,
-    message: 'Successfully join into chat room!',
-  };
+    const user = socket.request.session.user
+    const chatId = id
+    let roomId = ''
+    let chatRoomMembersKey = ''
+    let chatResult = {
+        chat_id: chatId,
+        room: roomId,
+        chat_reply: [],
+    }
 
-  return result;
-};
+    // Check if keys exists
+    let existingKeys = await redisClient.keys(`*room:${chatId}`)
+    if (existingKeys.length < 0) {
+        console.error('userJoinRoom: empty keys')
+        return {
+            data: roomId,
+            message: 'Failed join into chat room',
+        }
+    }
+
+    // Insert agent to on going room
+    roomId = existingKeys[0] // return the first keys
+    chatResult.room = roomId
+    chatRoomMembersKey = `${roomId}:members`
+    socket.join(roomId)
+
+    // Insert room id to "agent's on going rooms"
+    let userRoomsKey = `user:${user.id}:rooms`
+    await redisClient.zadd(userRoomsKey, getCurrentDateTime('unix'), roomId)
+
+    // Add agent id to "room members"
+    await redisClient.zadd(chatRoomMembersKey, getCurrentDateTime('unix'), user.id)
+
+    // Get message bubbles
+    let messageDetail = await getMessagesByChatId(chatId)
+    chatResult = messageDetail
+
+    // Check if room is in "pending list by department"
+    let currentDepartmentName = messageDetail.chat_reply[0].department_name
+    let currentCompanyName = user.company_name
+    let pendingChatInDepartment = `company:${currentCompanyName}:dept:${currentDepartmentName}:pending_chats`
+    let agentPendingTransferChatRoom = `user:${user.id}:pending_transfer_chats`
+
+    let isExistsInPending = await redisClient.zrank(pendingChatInDepartment, roomId)
+    if (isExistsInPending || isExistsInPending == 0) {
+        let removeKeyInPending = await redisClient.zrem(pendingChatInDepartment, roomId)
+        if (!removeKeyInPending)
+            console.error(`error remove ${roomId} from ${pendingChatInDepartment}`)
+    }
+
+    // Check if room is in "pending transfer list by department"
+    // code...
+
+    // Check if room is in "agent's pending transfer"
+    let isExistsInAgentPT = await redisClient.zrank(agentPendingTransferChatRoom, roomId)
+    if (isExistsInAgentPT || isExistsInAgentPT == 0) {
+        let removeKeyInPending = await redisClient.zrem(agentPendingTransferChatRoom, roomId)
+        if (!removeKeyInPending)
+            console.error(`error remove ${roomId} from ${agentPendingTransferChatRoom}`)
+    }
+
+    let pendingList = await getPendingListByUser(socket)
+    let ongoingList = await getOngoingListByUser(socket)
+    let pendingTransferList = await getPendingTransferListByUser(socket)
+    let result = {
+        chat_detail: chatResult,
+        message: 'Successfully join into chat room!',
+        ongoing: ongoingList,
+        pending: pendingList,
+        pendingtransfer: pendingTransferList,
+    }
+
+    /**
+     * Emit to FE
+     */
+    io.to(socket.id).emit('chat.ongoing', ongoingList)
+    io.to(socket.id).emit('chat.pending', pendingList)
+    io.to(socket.id).emit('chat.pendingtransfer', pendingTransferList)
+
+    return result
+}
 
 module.exports = {
   createUserAuth,

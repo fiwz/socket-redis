@@ -86,6 +86,24 @@ const getResolveListByUser = async(socket) => {
     return resolveList
 }
 
+const getPendingTransferListByUser = async(socket) => {
+    // Pending transfer to agent
+    const user = socket.request.session.user
+    if (socket.request.session.user === undefined) {
+        return {
+            data: null,
+            message: 'Failed to fetch data. Please login to continue'
+        }
+    }
+    let listPendingTransferChatRoom = `user:${user.id}:pending_transfer_chats`
+    let pendingTransferList = await getMessagesByManyChatRoom(listPendingTransferChatRoom)
+
+    // Pending transfer to department
+    // code...
+
+    return pendingTransferList
+}
+
 /**
  * Get all type of chat list and its messages
  * by logged in agent (user)
@@ -97,10 +115,12 @@ const getAllChatList = async (socket) => {
     let pendingList = await getPendingListByUser(socket)
     let ongoingList = await getOngoingListByUser(socket)
     let resolveList = await getResolveListByUser(socket)
+    let pendingTransferList = await getPendingTransferListByUser(socket)
     let data = {
-        pending: pendingList,
         ongoing: ongoingList,
-        resolve: resolveList
+        pending: pendingList,
+        pendingtransfer: pendingTransferList,
+        resolve: resolveList,
     }
 
     return data
@@ -359,6 +379,119 @@ const endChat = async(io, socket, data) => {
     return result
 }
 
+/**
+ * Transfer Chat
+ *
+ * - Transfer a chat from agent to agent
+ * - Transfer a chat from agent to department
+ *
+ * @param {*} io
+ * @param {*} socket
+ * @param {*} data
+ * @returns
+ */
+const transferChat = async (io, socket, data) => {
+    let initiator = socket.request.session.user
+    let chatId = data.chatId
+    let roomId = ''
+
+    console.log('Transfer chat: ', chatId)
+
+    // Check if room exists
+    let getMessages = await getMessagesByChatId(chatId)
+    if(!getMessages.room) {
+        console.error('Transfer chat error: empty keys. Room not found')
+        return {
+            data: data,
+            message: 'Failed to transfer chat. Room not found.'
+        }
+    }
+
+    // Check if agents is present and not assign to self
+    if(data.toAgent == initiator.id) {
+        return {
+            data: data,
+            message: 'Failed to transfer chat. Can not assign to self.'
+        }
+    }
+    let existingAgentKey = await redisClient.keys(`user:${data.toAgent}`)
+    if(existingAgentKey.length <= 0) {
+        return {
+            data: data,
+            message: 'Failed to transfer chat. Assigned agent is not found.'
+        }
+    }
+
+    roomId = getMessages.room
+    let previousAgentOngoingRoomKey = `user:${initiator.id}:rooms`
+    let ongoingRoomMembersKey = `${roomId}:members`
+    let pendingChatTransferMemberKey = `${roomId}:pending_transfer_members`
+    let unixtime = getCurrentDateTime('unix')
+
+    // Get Assigned Agent Socket
+    let assignedAgentSocket = null
+    let agentPTSocketRoom = `user:${data.toAgent}:pending_transfer_chat_room`
+    const mySockets = await io.in(agentPTSocketRoom).fetchSockets();
+    for (let [index, sd] of mySockets.entries()) {
+        assignedAgentSocket = sd
+    }
+
+    // Add previous agent to "chat id's pending transfer member"
+    let handledBy = [] // Chat is handled by which agents
+    let ongoingRoomMembers = await redisClient.zrange(ongoingRoomMembersKey, 0, -1)
+    if(ongoingRoomMembers && ongoingRoomMembers.length > 1) {
+        // Only get agent, index 0 contains client's email
+        let agent = ongoingRoomMembers.slice(1)
+
+        for(let [idx, item] of agent.entries()) {
+            handledBy.push(getCurrentDateTime('unix'), item)
+        }
+    }
+
+    // Add assigned agent to "chat id's pending transfer member"
+    handledBy.push(getCurrentDateTime('unix'), data.toAgent)
+
+    // Save all "handled by agents" to "chat id's pending transfer member"
+    const addToPTRoom = await redisClient.zadd(pendingChatTransferMemberKey, handledBy)
+
+    // Add assigned agent to "self's pending transfer room"
+    // Save to redis
+    const agentPTRoomKey = `user:${data.toAgent}:pending_transfer_chats`
+    const addToAgentPTRoom = await redisClient.zadd(agentPTRoomKey, unixtime, roomId)
+
+    // if addToPTRoom and addToAgentPTRoom is success
+    // Remove previous agent from on going room
+    if(addToPTRoom && addToAgentPTRoom) {
+        // Remove previous agent from "on going room members"
+        await redisClient.zrem(ongoingRoomMembers, initiator.id)
+
+        // Remove the room from "previous agent's on going room"
+        await redisClient.zrem(previousAgentOngoingRoomKey, roomId)
+
+        // Leave previous agent socket from room id
+        io.in(socket.id).socketsLeave(roomId);
+
+        // await redisClient.zrem('testing_pending_tf', 75) // remove old agent from "room members"
+    }
+
+    /** Emit to FE */
+    // Emit only to "agent's pending transfer room"
+    // io.to(`user:75:pending_transfer_chat_room`).emit('chat.pendingtransfer', 'hey ada pending transfer nich!')
+    let pendingTransferList = await getPendingTransferListByUser(assignedAgentSocket)
+    // let ongoingList = await getOngoingListByUser(assignedAgentSocket)
+    io.to(agentPTSocketRoom).emit('chat.pendingtransfer', pendingTransferList)
+    // io.to(agentPTSocketRoom).emit('chat.ongoing', ongoingList)
+
+    // Emit to previous agent
+    let previousAgentSocketId = socket.id
+    let previousAgentOngoingList = await getOngoingListByUser(socket)
+    io.to(previousAgentSocketId).emit('chat.ongoing', previousAgentOngoingList)
+
+    return true
+}
+
+
+
 module.exports = {
     endChat,
     generateChatId,
@@ -368,5 +501,7 @@ module.exports = {
     getOngoingListByUser,
     getPendingListByRoomKey,
     getPendingListByUser,
-    sendMessage
+    getPendingTransferListByUser,
+    sendMessage,
+    transferChat
 }

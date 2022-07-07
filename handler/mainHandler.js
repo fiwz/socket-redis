@@ -9,9 +9,10 @@ const _ = require('lodash');
 const { getCurrentDateTime } = require('../utils/helpers');
 
 const {
-  sendMessage,
   endChat,
   getAllChatList,
+  sendMessage,
+  transferChat,
 } = require('../services/main-chat-service');
 
 const {
@@ -28,6 +29,23 @@ module.exports = async (io, socket) => {
 
   await initAllConnectedUsers(io, socket, true);
 
+  // dev debug
+//   const socketsData = await io.in(socket.id).fetchSockets();
+//   console.log('user id: ', socket.request.session.user ? socket.request.session.user.id : 'blm login')
+//     if (socketsData) {
+//         for (let [index, sd] of socketsData.entries()) {
+//         // dev debug
+//         // console.log('sd.id', sd.id);
+//         // console.log('sd.handshake', sd.handshake);
+//         console.log('sd.rooms', sd.rooms);
+//         // console.log('sd.data', sd.data);
+//         }
+//     }
+
+
+  /**
+   * Reload socket session
+   */
   socket.on('reload', async (req = null) => {
     // Reload session to get updated client session
     socket.request.session.reload(async (err) => {
@@ -38,7 +56,7 @@ module.exports = async (io, socket) => {
 
       console.log('***************', 'reload socket', socket.request.session);
 
-      await initAllConnectedUsers(io, socket, true); // with return data)
+      await initAllConnectedUsers(io, socket, true); // with return data
     });
   });
 
@@ -46,9 +64,7 @@ module.exports = async (io, socket) => {
    * Agent Join Room
    */
   socket.on('room.join', async (id) => {
-    const joinedRoom = await userInsertAndJoinRoom(socket, id);
-    io.to(socket.id).emit('chat.ongoing', joinedRoom.ongoing); // Emit to agent's on going list
-    io.to(socket.id).emit('chat.pending', joinedRoom.pending); // Emit to agent's pending list
+    const joinedRoom = await userInsertAndJoinRoom(io, socket, id)
   });
 
   /**
@@ -82,6 +98,14 @@ module.exports = async (io, socket) => {
     const result = await endChat(io, socket, data);
     // console.log('result', result)
   });
+
+  /**
+   * Transfer chat
+   */
+  socket.on('chat.transfer', async (data) => {
+    const result = await transferChat(io, socket, data)
+    console.log('BE listen to chat.transfer', result)
+  })
 
   /**
    * Client request to fetch all data
