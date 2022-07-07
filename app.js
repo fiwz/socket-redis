@@ -77,7 +77,7 @@ const sessionMiddleware = session({
 
 const auth = (req, res, next) => {
   if (!req.session.user) {
-    return responseMessage(res, 403, 'User Session Required');
+    return responseMessage(res, 403, 'User Session Required', false);
   }
   next();
 };
@@ -421,7 +421,7 @@ app.get('/send-message', async (req, res) => {
       );
     return responseData(res, 200, currentClient);
   } else {
-    return responseMessage(res, 403, 'Client is not logged in');
+    return responseMessage(res, 403, 'Client is not logged in', false);
   }
 });
 
@@ -431,11 +431,12 @@ app.get('/chat-details/:id', auth, async (req, res) => {
     const chatID = req.params.id;
     const messages = await getMessagesByChatId(chatID);
 
-    // emit show.room chatId
+    if(!messages.room)
+      return responseMessage(res, 404, 'Error fetch messages. Data is not found', false);
 
-    return responseData(res, 200, messages);
+      return responseData(res, 200, messages);
   } catch (err) {
-    return responseMessage(res, 403, 'Error fetch messages' + err);
+    return responseMessage(res, 404, 'Error fetch messages' + err, false);
   }
 });
 

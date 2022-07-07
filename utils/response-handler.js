@@ -1,15 +1,15 @@
-const responseData = function (response, statusCode, values) {
+const responseData = function (response, statusCode, values, isSuccess=true) {
     var data = {
-        success: true,
+        success: isSuccess,
         data: values,
     };
     response.status(statusCode).json(data);
     response.end();
 };
 
-const responseMessage = function (response, statusCode, message) {
+const responseMessage = function (response, statusCode, message, isSuccess=true) {
     var data = {
-        success: true,
+        success: isSuccess,
         message: message,
     };
     response.status(statusCode).json(data);
