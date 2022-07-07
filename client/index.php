@@ -10,7 +10,7 @@
 
     <div class="container">
         <div class="row">
-            <div class="col-4">
+            <div class="col-6">
                 <div class="wrap-login py-4 px-5 bg-light border rounded rounded-4 my-3">
                     <p class="mb-3 fs-2 fw-normal">Login</p>
 
@@ -27,7 +27,7 @@
 
             </div>
 
-            <div class="col-4">
+            <div class="col-6">
                 <div class="wrap-login py-4 px-5 bg-light border rounded rounded-4 my-3">
                     <p class="mb-3 fs-2 fw-normal">Login as Client</p>
 
@@ -61,6 +61,12 @@
                                 </ul>
                             </div>
 
+                            <div id="pendingtransfer">
+                                <div class="mt-4 mb-3">Pending Transfer</div>
+                                <ul class="list-group">
+                                </ul>
+                            </div>
+
                             <div id="ongoing">
                                 <div class="mt-4 mb-3">On Going Chat</div>
                                 <ul class="list-group">
@@ -85,6 +91,23 @@
                             <input type="hidden" id="date" name="date" class="mb-3 form-control" />
                             <input type="text" id="message-reply" name="message_reply" class="mb-3 form-control" placeholder="Reply Message" />
                             <input type="button" id="btn-send-message" class="btn btn-success" value="Send Message">
+
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-12">
+                <div class="wrap-login py-4 px-5 bg-light border rounded rounded-4 my-3">
+                    <div class="row">
+                        <div class="col-6">
+                            <div class="d-flex mb-3">
+                                <p class="mb-1">Transfer to Agent</p>
+                              </div>
+                            <div id="fetch-message"></div>
+                            <input type="text" id="transfer-chat-id" name="transfer_chat_id" class="mb-3 form-control" placeholder="Chat ID" />
+                            <input type="text" id="transfer-to-agent" name="transfer_to_agent" class="mb-3 form-control" placeholder="Agent ID" />
+                            <input type="button" id="btn-transfer-chat" class="btn btn-success" value="Transfer Chat">
 
                         </div>
                     </div>

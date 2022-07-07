@@ -178,7 +178,7 @@ $(() => {
    * Only for agent(user)
    * Ambil chat dari pending list dan memindahkannya ke on going
    */
-  $(document).on('click', '#my-chats #pending ul li', function (e) {
+  $(document).on('click', '#my-chats #pending ul li, #my-chats #pendingtransfer ul li', function (e) {
     let elementId = $(this).attr('id');
     let chatId = elementId;
     if (elementId.search(':') != -1) {
@@ -344,6 +344,16 @@ $(() => {
     });
   });
 
+  $(document).on('click', '#btn-transfer-chat', function (e) {
+    console.log('agent transfer chat')
+    let data = {
+        chatId: $('#transfer-chat-id').val(),
+        toAgent: $('#transfer-to-agent').val(),
+    }
+
+    socket.emit('chat.transfer', data)
+  })
+
   // Get and request all data
   // $('#btn-example').click(function() {
   socket.emit('allData');
@@ -394,6 +404,13 @@ $(() => {
     // code...
   });
 
+  /**
+   * Resolve Chat
+   *
+   * Only for Agent
+   * Listening if there is new resolve chat
+   *
+   */
   socket.on('chat.resolve', (message) => {
     console.log('Listen resolve msg', message);
 
@@ -409,6 +426,31 @@ $(() => {
         );
       }
     }
+  });
+
+  /**
+   * Pending Transfer Chat
+   *
+   * Only for Agent
+   * Listening if there is new pending transfer chat
+   *
+   */
+  socket.on('chat.pendingtransfer', (message) => {
+    console.log('Listen pending transfer msg', message);
+
+    // Reset on going list
+    // code...
+
+    // Reset resolve list
+    if (message) {
+      $('#my-chats #pendingtransfer ul').html('');
+      for (let [index, chat] of message.entries()) {
+        $('#my-chats #pendingtransfer ul').append(
+          `<li class="list-group-item" id="${chat.chat_id}" >${chat.user_name} (${chat.user_email})</li>`
+        );
+      }
+    }
+
   });
 
   /**
