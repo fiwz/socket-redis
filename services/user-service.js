@@ -7,7 +7,8 @@ const sub = redis.sub;
 
 const {
     getAllChatList,
-    getClientChatList,
+    getClientOngoingChat,
+    getClientResolveList,
     getMessagesByChatId,
     getOngoingListByUser,
     getPendingListByUser,
@@ -107,8 +108,10 @@ const initAllConnectedUsers = async (io, socket, withReturnData = false) => {
             // If client
             clientGetAndJoinRoom(socket);
 
-            const clientChatList = await getClientChatList(socket);
-            socket.emit('client.chat.onrefresh', clientChatList);
+            const clientChatList = await getClientOngoingChat(socket);
+            const clientResolveList = await getClientResolveList(socket);
+            socket.emit('client.chat.ongoing', clientChatList);
+            socket.emit('client.chat.resolve', clientResolveList);
         }
     }
 };
@@ -330,10 +333,10 @@ const userInsertAndJoinRoom = async (io, socket, id) => {
 }
 
 module.exports = {
-    createUserAuth,
-    initAllConnectedUsers,
-    userInsertAndJoinRoom,
     clientGetAndJoinRoom,
+    createUserAuth,
     getCompanyOnlineUsers,
+    initAllConnectedUsers,
     userGetAndJoinRoom,
+    userInsertAndJoinRoom,
 };

@@ -31,8 +31,7 @@ const slugify = function(str) {
     return str;
 };
 
-
 module.exports = {
+    getCurrentDateTime,
     slugify,
-    getCurrentDateTime
 }

@@ -14,6 +14,27 @@ const {
 } = require("../utils/response-handler")
 
 /**
+ * Define Variable
+ */
+let predefinedChatKeys = {
+    // chat_reply: [],
+    agent_email: null,
+    agent_id: null,
+    agent_name: null,
+    agent_uuid: null,
+    chat_id: null, // item.split(':').pop()
+    department_name: null,
+    formatted_date: null,
+    message: null,
+    room: null, // item
+    topic_name: null,
+    user_avatar: null,
+    user_email: null,
+    user_name: null,
+    user_phone: null,
+}
+
+/**
  * Generate Chat ID
  *
  * Chat ID length is 15 characters
@@ -138,25 +159,38 @@ const getAllChatList = async (socket) => {
  * @param {*} socket
  * @returns
  */
-const getClientChatList = async (socket) => {
+const getClientOngoingChat = async (socket) => {
     let clientRoomKey = `client:${socket.request.session.user.email}:rooms`
     let clientRoomId = await redisClient.get(clientRoomKey)
-    let chatResult = {}
-
-    let bubbleExist = await redisClient.exists(clientRoomKey)
-    chatResult = {
-        chat_id: clientRoomId ? clientRoomId.split(':').pop() : '',
-        room: clientRoomId,
-        chat_reply: []
+    let chatId = clientRoomId ? clientRoomId.split(':').pop() : null
+    let getMessages = await getMessagesByChatId(chatId)
+    if(!getMessages.room) {
+        console.error(errorResponseFormat(null, 'Room not found.'))
+        return []
     }
 
-    if(bubbleExist) {
-        let bubbles = await redisClient.call('JSON.GET', clientRoomId)
-        chatResult.chat_reply = JSON.parse(bubbles)
-    }
-
-    return chatResult
+    return getMessages
 }
+
+/**
+ * Get list resolve chat
+ * by logged in client
+ *
+ * @param {*} socket
+ */
+const getClientResolveList = async (socket) => {
+    const clientData = socket.request.session.user
+    if (clientData === undefined) {
+        // return errorResponseFormat(null, 'Failed to fetch data. Please login to continue')
+        return []
+    }
+
+    let listClientResolveChatRoom = `client:${clientData.email}:resolve_chats`
+    let clientResolveList = await getMessagesByManyChatRoom(listClientResolveChatRoom)
+
+    return clientResolveList
+}
+
 
 /**
  * Fetch messages (bubbles/chat replies)
@@ -167,12 +201,10 @@ const getClientChatList = async (socket) => {
  */
 const getMessagesByChatId = async (id) => {
     const chatId = id
-    let roomId = ''
-    let chatResult = {
-        chat_id: chatId,
-        room: roomId,
-        chat_reply: []
-    }
+    let roomId = null
+    let chatResult = predefinedChatKeys
+    chatResult.chat_reply = []
+    chatResult.chat_id = chatId
 
     let existingKeys = await redisClient.keys(`*room:${chatId}`)
     if(existingKeys.length <= 0 ) {
@@ -204,23 +236,9 @@ const getMessagesByChatId = async (id) => {
         // Mapping data for every chat id (room)
         for(let [idx, item] of chatListKey.entries()) {
             let bubbleExist = await redisClient.exists(item)
-            chatListWithBubble[idx] = {
-                // chat_reply: [],
-                agent_email: null,
-                agent_id: null,
-                agent_name: null,
-                agent_uuid: null,
-                chat_id: item.split(':').pop(),
-                department_name: null,
-                formatted_date: null,
-                message: null,
-                room: item,
-                topic_name: null,
-                user_avatar: null,
-                user_email: null,
-                user_name: null,
-                user_phone: null,
-            }
+            chatListWithBubble[idx] = predefinedChatKeys
+            chatListWithBubble[idx].chat_id = item.split(':').pop()
+            chatListWithBubble[idx].room = item
 
             if(bubbleExist) {
                 let bubbles = await redisClient.call('JSON.GET', item)
@@ -262,6 +280,40 @@ const getMessagesByChatId = async (id) => {
     return chatListWithBubble
 }
 
+/**
+ * Check if user is join the specific socket room
+ *
+ * @param {*} io
+ * @param {*} socket
+ * @param {*} roomId
+ * @returns
+ */
+ const isUserInRoom = async(io, socket, roomId) => {
+    console.log('kepanggil')
+    let failedCheckUser = errorResponseFormat(null, 'Failed to process the rquest. User is not in chat room.')
+    let socketsInRoom = await io.in(roomId).fetchSockets();
+    if(!socketsInRoom) { // Room is empty
+        failedCheckUser = errorResponseFormat(null, 'Room is Empty.')
+        console.error(failedCheckUser)
+        return failedCheckUser
+    }
+
+    let userExistsInRoom = false;
+    for(let [idx, socketUser] of socketsInRoom.entries()) {
+        if( socket.id == socketUser.id ) {
+            userExistsInRoom = true;
+            break;
+        }
+    }
+
+    if(!userExistsInRoom) { // User is not in room
+        console.error(failedCheckUser)
+        return failedCheckUser
+    }
+
+    return successResponseFormat(null, 'User is already in room')
+}
+
 const sendMessage = async(io, socket, data) => {
     let sender = socket.request.session.user
     let chatId = data.chatId
@@ -269,40 +321,21 @@ const sendMessage = async(io, socket, data) => {
 
     let getMessages = await getMessagesByChatId(chatId)
     if(!getMessages.room) {
-        console.error('Send Message Error: empty keys. Room not found')
-        return {
-            data: data,
-            message: 'Failed to send message. Room not found.'
-        }
+        let requestResult = errorResponseFormat(data, 'Failed to send message. Room not found.')
+        console.error(requestResult)
+        socket.emit('message', requestResult)
+
+        return requestResult
     }
 
     roomId = getMessages.room // return the first keys
     let datetime = getCurrentDateTime()
 
     // Check if user is already join room
-    let socketsInRoom = await io.in(roomId).fetchSockets();
-    if(!socketsInRoom) {
-        console.error('Send Message Error: empty keys. User is not in chat room.')
-        return {
-            data: data,
-            message: 'Failed to send message. User is not in chat room.'
-        }
-    }
-
-    let isUserInRoom = false;
-    for(let [idx, socketUser] of socketsInRoom.entries()) {
-        if( socket.id == socketUser.id ) {
-            isUserInRoom = true;
-            break;
-        }
-    }
-
-    if(!isUserInRoom) {
-        console.error('Send Message Error: empty keys. User is not in chat room.')
-        return {
-            data: data,
-            message: 'Failed to send message. User is not in chat room.'
-        }
+    let userInRoom = await isUserInRoom(io, socket, roomId)
+    if(!userInRoom.success) {
+        socket.emit('message', userInRoom)
+        return userInRoom
     }
 
     let chatContent = {
@@ -523,13 +556,12 @@ const transferChat = async (io, socket, data) => {
     return successResponseFormat()
 }
 
-
-
 module.exports = {
     endChat,
     generateChatId,
     getAllChatList,
-    getClientChatList,
+    getClientOngoingChat,
+    getClientResolveList,
     getMessagesByChatId,
     getOngoingListByUser,
     getPendingListByRoomKey,
