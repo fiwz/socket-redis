@@ -462,6 +462,18 @@ $(() => {
   });
 
   /**
+   * End Chat Result
+   *
+   * Only for Agent
+   * Listening if there is new resolve chat
+   *
+   */
+  socket.on('chat.endresult', (message) => {
+    console.log('Listen chat.endresult', message);
+    alert(`Listen chat.endresult. ${message.success}: ${message.message}`)
+  });
+
+  /**
    * Show Room
    *
    * Use together with socket.on("message")
