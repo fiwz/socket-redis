@@ -364,13 +364,18 @@ const endChat = async(io, socket, data) => {
         }
     }
 
-    // Delete room id from client's on going list
+    // Client's data
     let clientIdentifier = await redisClient.zrange(ongoingRoomMembersKey, 0, 0) // return object
     let clientRoom = null
     let clientResolveRoom = null
     if(clientIdentifier && clientIdentifier.length > 0) {
-        clientRoom = `client:${clientIdentifier}:rooms`
-        clientResolveRoom = `client:${clientIdentifier}:resolve_chats`
+        // set client identifier
+        // if livechat, user email
+        // if telegram/whatsapp, user phone
+        clientRoom = `client:${clientIdentifier[0]}:rooms`
+        clientResolveRoom = `client:${clientIdentifier[0]}:resolve_chats`
+        await redisClient.del(clientRoom) // Delete room id from client's on going list
+        await redisClient.zadd(clientResolveRoom, unixtime, roomId) // Add room id to client's resolve list
     }
 
     /** Emit to FE */
@@ -404,12 +409,15 @@ const endChat = async(io, socket, data) => {
     }
 
     // Emit to client's resolve chat
-    // get socket from roomID
-    // check if the value is email (not integer)
-    //      or if data does not have id
-    // io.to(clientSocket.id).emit('client.chat.resolve', clientResolveList)
-    // then remove from redis
-    // remove loop user:75:pending_transfer_socket_room
+    let socketInOngoingRoomMember = await io.in(roomId).fetchSockets()
+    if(socketInOngoingRoomMember) {
+        for(let [index, sd] of socketInOngoingRoomMember.entries()) {
+            if(!sd.data.user.id) {
+                io.to(sd.id).emit('client.chat.endresult', resultMessage)
+                break;
+            }
+        }
+    }
 
     // Take out (leave) agent and user from room id
     io.in(roomId).socketsLeave(roomId);
@@ -502,9 +510,6 @@ const transferChat = async (io, socket, data) => {
     const agentPTRoomKey = `user:${data.toAgent}:pending_transfer_chats`
     const addToAgentPTRoom = await redisClient.zadd(agentPTRoomKey, unixtime, roomId)
 
-    console.log('agentPTRoomKey', agentPTRoomKey)
-    console.log('addToAgentPTRoom', addToAgentPTRoom)
-
     // if addToPTRoom and addToAgentPTRoom is success
     // Remove previous agent from on going room
     // if(addToPTRoom && addToAgentPTRoom) {
@@ -514,7 +519,6 @@ const transferChat = async (io, socket, data) => {
         // Remove the room from "previous agent's on going room"
         await redisClient.zrem(previousAgentOngoingRoomKey, roomId)
 
-        console.log('masuk, harusnya kehapus')
         // Leave previous agent socket from room id
         io.in(socket.id).socketsLeave(roomId);
     // }
