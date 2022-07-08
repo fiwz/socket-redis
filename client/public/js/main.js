@@ -102,14 +102,19 @@ $(() => {
         console.log('Login as client response: ', response.data);
         showLoginInfo();
 
-        socket.connect();
-        socket.emit('reload');
+        setTimeout(() => {
+            socket.connect();
+            socket.emit('reload');
 
-        // emit after success
-        socket.emit('chat.new', allData);
+            // emit after success
+            socket.emit('chat.new', allData);
 
-        // remove left side list
-        $('#pending').parent().remove();
+            // remove left side list
+            $('#pending').parent().remove();
+
+            $('#client-resolve').removeClass('d-none');
+            $('#client-resolve').addClass('d-block');
+        }, 3000)
 
         // refresh page to see changes
       })
@@ -232,7 +237,10 @@ $(() => {
    *
    * Show bubbles/chat detail
    */
-  $(document).on('click', '#my-chats #ongoing ul li, #my-chats #resolve ul li', function (e) {
+  $(document).on(
+    'click',
+    '#my-chats #ongoing ul li, #my-chats #resolve ul li, #client-resolve ul li',
+    function (e) {
     let elementId = $(this).attr('id');
     let chatId = elementId;
     if (elementId.search(':') != -1) {
@@ -503,6 +511,10 @@ $(() => {
    * Recommend to use this for rendering bubble chat
    */
   socket.on('message', (message) => {
+    if(!message.success) {
+        return alert(message.message)
+    }
+
     $('#fetch-message').append(`
         <div style='margin-bottom: 8px;'>
             <p style='margin: 0px;'>${
@@ -586,7 +598,7 @@ $(() => {
   /**
    * Get All data in client area
    */
-  socket.on('client.chat.onrefresh', (message) => {
+  socket.on('client.chat.ongoing', (message) => {
     console.log('CLIENT chat on refresh result:', message);
 
     $('#fetch-message').html('');
@@ -607,6 +619,8 @@ $(() => {
       $('#chat-id').val(message.chat_id);
 
       $('#pending').parent().remove();
+      $('#client-resolve').removeClass('d-none');
+      $('#client-resolve').addClass('d-block');
     }
   });
 
@@ -623,6 +637,13 @@ $(() => {
    */
   socket.on('client.chat.resolve', (message) => {
     console.log('CLIENT Listen client.chat.resolve:', message);
+
+    $('#client-resolve ul').html('');
+    for (let [index, chat] of message.entries()) {
+      $('#client-resolve ul').append(
+        `<li class="list-group-item" id="${chat.chat_id}" >${chat.chat_id} <small>(${chat.formatted_date})</small></li>`
+      );
+    }
   });
 
 });

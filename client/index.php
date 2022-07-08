@@ -49,7 +49,7 @@
 
             <div class="col-12">
                 <div class="wrap-login py-4 px-5 bg-light border rounded rounded-4 my-3" id="my-chats">
-                    <p class="mb-3 fs-2 fw-normal">My Chats</p>
+                    <p class="my-3 fs-2 fw-normal">My Chats</p>
                     <div class="row">
                         <div class="col-6">
                             <div id="pending">
@@ -80,8 +80,17 @@
                             </div>
 
                         </div>
+
+                        <div class="col-6 d-none" id="client-resolve">
+                            <div>
+                                <div class="my-3">Client Resolve Chat</div>
+                                <ul class="list-group">
+                                </ul>
+                            </div>
+                        </div>
+
                         <div class="col-6">
-                            <div class="d-flex mb-3">
+                            <div class="d-flex my-3">
                                 <p class="mb-1">Fecth Message</p>
                                 <button type="button" id="btn-close-chat" class="ms-auto btn btn-danger btn-sm">Close Chat</button>
                               </div>
