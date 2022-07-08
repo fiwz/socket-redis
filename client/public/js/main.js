@@ -232,7 +232,7 @@ $(() => {
    *
    * Show bubbles/chat detail
    */
-  $(document).on('click', '#my-chats #ongoing ul li', function (e) {
+  $(document).on('click', '#my-chats #ongoing ul li, #my-chats #resolve ul li', function (e) {
     let elementId = $(this).attr('id');
     let chatId = elementId;
     if (elementId.search(':') != -1) {
@@ -570,6 +570,8 @@ $(() => {
     );
   });
 
+
+
   /** Client Area */
   /**
    * Get All data in client area
@@ -597,4 +599,20 @@ $(() => {
       $('#pending').parent().remove();
     }
   });
+
+  /**
+   * Resolve chat/history for client
+   */
+  socket.on('client.chat.endresult', (message) => {
+    console.log('CLIENT Listen client.chat.endresult:', message);
+    alert(message.message);
+  });
+
+  /**
+   * Resolve chat/history for client
+   */
+  socket.on('client.chat.resolve', (message) => {
+    console.log('CLIENT Listen client.chat.resolve:', message);
+  });
+
 });
