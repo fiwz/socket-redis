@@ -8,6 +8,11 @@ const moment = require('moment');
 
 const { getCurrentDateTime } = require("../utils/helpers");
 
+const {
+    successResponseFormat,
+    errorResponseFormat
+} = require("../utils/response-handler")
+
 /**
  * Generate Chat ID
  *
@@ -443,33 +448,31 @@ const endChat = async(io, socket, data) => {
 const transferChat = async (io, socket, data) => {
     let initiator = socket.request.session.user
     let chatId = data.chatId
-    let roomId = ''
-
-    console.log('Transfer chat: ', chatId)
+    let roomId = null
+    let requestResult = null
 
     // Check if room exists
     let getMessages = await getMessagesByChatId(chatId)
     if(!getMessages.room) {
         console.error('Transfer chat error: empty keys. Room not found')
-        return {
-            data: data,
-            message: 'Failed to transfer chat. Room not found.'
-        }
+
+        requestResult = errorResponseFormat(data, 'Failed to transfer chat. Room not found.')
+        socket.emit('chat.transferresult', requestResult)
+        return requestResult
     }
 
     // Check if agents is present and not assign to self
     if(data.toAgent == initiator.id) {
-        return {
-            data: data,
-            message: 'Failed to transfer chat. Can not assign to self.'
-        }
+        requestResult = errorResponseFormat(null, 'Failed to transfer chat. Can not assign to self.')
+        socket.emit('chat.transferresult', requestResult)
+        return requestResult
     }
+
     let existingAgentKey = await redisClient.keys(`user:${data.toAgent}`)
     if(existingAgentKey.length <= 0) {
-        return {
-            data: data,
-            message: 'Failed to transfer chat. Assigned agent is not found.'
-        }
+        requestResult = errorResponseFormat(null, 'Failed to transfer chat. Assigned agent is not found.')
+        socket.emit('chat.transferresult', requestResult)
+        return requestResult
     }
 
     roomId = getMessages.room
@@ -486,20 +489,8 @@ const transferChat = async (io, socket, data) => {
         assignedAgentSocket = sd
     }
 
-    /** Already handled when room.join */
-    // Add previous agent to "chat id's pending transfer member"
-    let handledBy = [] // Chat is handled by which agents
-    let ongoingRoomMembers = await redisClient.zrange(ongoingRoomMembersKey, 0, -1)
-    // if(ongoingRoomMembers && ongoingRoomMembers.length > 1) {
-    //     // Only get agent, index 0 contains client's email
-    //     let agent = ongoingRoomMembers.slice(1)
-
-    //     for(let [idx, item] of agent.entries()) {
-    //         handledBy.push(getCurrentDateTime('unix'), item)
-    //     }
-    // }
-
     // Add assigned agent to "chat id's pending transfer member"
+    let handledBy = [] // Chat is handled by which agents
     handledBy.push(getCurrentDateTime('unix'), data.toAgent)
 
     // Save all "handled by agents" to "chat id's pending transfer member"
@@ -513,14 +504,9 @@ const transferChat = async (io, socket, data) => {
     // if addToPTRoom and addToAgentPTRoom is success
     // Remove previous agent from on going room
     // if(addToPTRoom && addToAgentPTRoom) {
-        // Remove previous agent from "on going room members"
-        await redisClient.zrem(ongoingRoomMembersKey, initiator.id)
-
-        // Remove the room from "previous agent's on going room"
-        await redisClient.zrem(previousAgentOngoingRoomKey, roomId)
-
-        // Leave previous agent socket from room id
-        io.in(socket.id).socketsLeave(roomId);
+        await redisClient.zrem(ongoingRoomMembersKey, initiator.id) // Remove previous agent from "on going room members"
+        await redisClient.zrem(previousAgentOngoingRoomKey, roomId) // Remove the room from "previous agent's on going room"
+        io.in(socket.id).socketsLeave(roomId); // Leave previous agent socket from room id
     // }
 
     /** Emit to FE */
@@ -533,7 +519,8 @@ const transferChat = async (io, socket, data) => {
     let previousAgentOngoingList = await getOngoingListByUser(socket)
     io.to(previousAgentSocketId).emit('chat.ongoing', previousAgentOngoingList)
 
-    return true
+    socket.emit('chat.transferresult', successResponseFormat())
+    return successResponseFormat()
 }
 
 

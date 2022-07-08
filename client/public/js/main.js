@@ -470,7 +470,17 @@ $(() => {
    */
   socket.on('chat.endresult', (message) => {
     console.log('Listen chat.endresult', message);
-    alert(`Listen chat.endresult. ${message.success}: ${message.message}`)
+    alert(`Listen chat.endresult. ${message.message}`)
+  });
+
+  /**
+   * Transfer Chat Result
+   *
+   * Only for Agent
+   */
+  socket.on('chat.transferresult', (message) => {
+    console.log('Listen chat.transferresult', message);
+    alert(`Listen chat.transferresult. ${message.message}`)
   });
 
   /**
