@@ -30,17 +30,17 @@ module.exports = async (io, socket) => {
     await initAllConnectedUsers(io, socket, true);
 
     // dev debug
-    const socketsData = await io.in(socket.id).fetchSockets();
-    console.log('user id: ', socket.request.session.user ? socket.request.session.user.id : 'blm login')
-    if(socketsData) {
-        for(let [index, sd] of socketsData.entries()) {
-            // dev debug
-            // console.log('sd.id', sd.id);
-            // console.log('sd.handshake', sd.handshake);
-            console.log('sd.rooms', sd.rooms);
-            // console.log('sd.data', sd.data);
-        }
-    }
+    // const socketsData = await io.in(socket.id).fetchSockets();
+    // console.log('user id: ', socket.request.session.user ? socket.request.session.user.id : 'blm login')
+    // if(socketsData) {
+    //     for(let [index, sd] of socketsData.entries()) {
+    //         // dev debug
+    //         // console.log('sd.id', sd.id);
+    //         // console.log('sd.handshake', sd.handshake);
+    //         console.log('sd.rooms', sd.rooms);
+    //         // console.log('sd.data', sd.data);
+    //     }
+    // }
 
 
     /**
