@@ -6,12 +6,12 @@ const redisClient = redis.client;
 const sub = redis.sub;
 
 const {
-  getAllChatList,
-  getClientChatList,
-  getMessagesByChatId,
-  getOngoingListByUser,
-  getPendingListByUser,
-  getPendingTransferListByUser,
+    getAllChatList,
+    getClientChatList,
+    getMessagesByChatId,
+    getOngoingListByUser,
+    getPendingListByUser,
+    getPendingTransferListByUser,
 } = require('../services/main-chat-service');
 
 const { getCurrentDateTime, slugify } = require('../utils/helpers');
@@ -26,37 +26,37 @@ const { getCurrentDateTime, slugify } = require('../utils/helpers');
  * @returns
  */
 const createUserAuth = async (data) => {
-  let arrData = [];
-  let newData = [];
-  Object.keys(data).forEach((item, idx) => {
-    if (['company_name', 'department_name'].includes(item)) {
-      arrData.push(item, slugify(data[item]));
-      newData[item] = slugify(data[item]);
-    } else {
-      arrData.push(item, data[item]);
-      newData[item] = data[item];
-    }
-  });
+    let arrData = [];
+    let newData = [];
+    Object.keys(data).forEach((item, idx) => {
+        if(['company_name', 'department_name'].includes(item)) {
+            arrData.push(item, slugify(data[item]));
+            newData[item] = slugify(data[item]);
+        } else {
+            arrData.push(item, data[item]);
+            newData[item] = data[item];
+        }
+    });
 
-  // Save data user to redis
-  let userDataKey = `user:${data.agent_id}`;
-  await redisClient.hmset(userDataKey, arrData);
+    // Save data user to redis
+    let userDataKey = `user:${data.agent_id}`;
+    await redisClient.hmset(userDataKey, arrData);
 
-  // Insert user to company department
-  let companySlug = slugify(data.company_name);
-  let departmentSlug = slugify(data.department_name);
-  let usersInDepartmentKey = `company:${companySlug}:dept:${departmentSlug}:users`;
-  await redisClient.sadd(usersInDepartmentKey, data.agent_id);
+    // Insert user to company department
+    let companySlug = slugify(data.company_name);
+    let departmentSlug = slugify(data.department_name);
+    let usersInDepartmentKey = `company:${companySlug}:dept:${departmentSlug}:users`;
+    await redisClient.sadd(usersInDepartmentKey, data.agent_id);
 
-  // Add to online user list
-  let companyOnlineUsersKey = `company:${companySlug}:online_users`;
-  await redisClient.zadd(
-    companyOnlineUsersKey,
-    getCurrentDateTime('unix'),
-    data.agent_id
-  );
+    // Add to online user list
+    let companyOnlineUsersKey = `company:${companySlug}:online_users`;
+    await redisClient.zadd(
+        companyOnlineUsersKey,
+        getCurrentDateTime('unix'),
+        data.agent_id
+    );
 
-  return newData;
+    return newData;
 };
 
 /**
@@ -68,88 +68,88 @@ const createUserAuth = async (data) => {
  * @param {*} socket
  */
 const initAllConnectedUsers = async (io, socket, withReturnData = false) => {
-  if (socket.request.session.user !== undefined) {
-    const user = socket.request.session.user;
+    if(socket.request.session.user !== undefined) {
+        const user = socket.request.session.user;
 
-    // If agent
-    if (user.id) {
-      // Add to online user list
-      let companyOnlineUsersKey = `company:${user.company_name}:online_users`;
-      await redisClient.zadd(
-        companyOnlineUsersKey,
-        getCurrentDateTime('unix'),
-        user.id
-      );
-      // console.log(`User is connected: ${user.id}`)
+        // If agent
+        if(user.id) {
+            // Add to online user list
+            let companyOnlineUsersKey = `company:${user.company_name}:online_users`;
+            await redisClient.zadd(
+                companyOnlineUsersKey,
+                getCurrentDateTime('unix'),
+                user.id
+            );
+            // console.log(`User is connected: ${user.id}`)
 
-      userGetAndJoinRoom(socket);
+            userGetAndJoinRoom(socket);
 
-      if (withReturnData) {
-        const myChatList = await getAllChatList(socket);
-        const companyOnlineUsers = await getCompanyOnlineUsers(io, socket);
+            if(withReturnData) {
+                const myChatList = await getAllChatList(socket);
+                const companyOnlineUsers = await getCompanyOnlineUsers(io, socket);
 
-        let result = myChatList;
-        result.online_users = companyOnlineUsers;
+                let result = myChatList;
+                result.online_users = companyOnlineUsers;
 
-        /** Emit to FE */
-        let companyOnlineUserRoom = `company:${user.company_name}:online_user_room`;
-        // Emit All Data
-        // socket.emit('chat.onrefresh', result); // to all user
-        socket.emit('chat.pending', myChatList.pending);
-        socket.emit('chat.ongoing', myChatList.ongoing);
-        socket.emit('chat.resolve', myChatList.resolve);
-        socket.emit('chat.pendingtransfer', myChatList.pendingtransfer);
+                /** Emit to FE */
+                let companyOnlineUserRoom = `company:${user.company_name}:online_user_room`;
+                // Emit All Data
+                // socket.emit('chat.onrefresh', result); // to all user
+                socket.emit('chat.pending', myChatList.pending);
+                socket.emit('chat.ongoing', myChatList.ongoing);
+                socket.emit('chat.resolve', myChatList.resolve);
+                socket.emit('chat.pendingtransfer', myChatList.pendingtransfer);
 
-        // Emit Online Users
-        io.to(companyOnlineUserRoom).emit('users.online', companyOnlineUsers); // to all user in a company
-      }
-    } else {
-      // If client
-      clientGetAndJoinRoom(socket);
+                // Emit Online Users
+                io.to(companyOnlineUserRoom).emit('users.online', companyOnlineUsers); // to all user in a company
+            }
+        } else {
+            // If client
+            clientGetAndJoinRoom(socket);
 
-      const clientChatList = await getClientChatList(socket);
-      socket.emit('client.chat.onrefresh', clientChatList);
+            const clientChatList = await getClientChatList(socket);
+            socket.emit('client.chat.onrefresh', clientChatList);
+        }
     }
-  }
 };
 
 const getCompanyOnlineUsers = async (io, socket = null, request = null) => {
-  let onlineUsers = [];
-  let sourceAuthData = socket ? socket.request.session : request.session;
+    let onlineUsers = [];
+    let sourceAuthData = socket ? socket.request.session : request.session;
 
-  if (sourceAuthData.user !== undefined) {
-    const user = sourceAuthData.user;
+    if(sourceAuthData.user !== undefined) {
+        const user = sourceAuthData.user;
 
-    // via Redis
-    // let companyOnlineUsersKey = `company:${user.company_name}:online_users`
-    // let isMemberExists = await redisClient.zrange(companyOnlineUsersKey, 0, -1)
-    // if(isMemberExists) {
-    //     for(let [idx, member] of isMemberExists.entries()) {
-    //         let memberDetailKey = await redisClient.hgetall(`user:${member}`)
-    //         if(memberDetailKey)
-    //             onlineUsers[idx] = memberDetailKey
-    //     }
-    // }
+        // via Redis
+        // let companyOnlineUsersKey = `company:${user.company_name}:online_users`
+        // let isMemberExists = await redisClient.zrange(companyOnlineUsersKey, 0, -1)
+        // if(isMemberExists) {
+        //     for(let [idx, member] of isMemberExists.entries()) {
+        //         let memberDetailKey = await redisClient.hgetall(`user:${member}`)
+        //         if(memberDetailKey)
+        //             onlineUsers[idx] = memberDetailKey
+        //     }
+        // }
 
-    // via Socket Room
-    let companyOnlineUserRoom = `company:${user.company_name}:online_user_room`;
-    const socketsData = await io.in(companyOnlineUserRoom).fetchSockets();
-    if (socketsData) {
-      for (let [index, sd] of socketsData.entries()) {
-        // dev debug
-        // console.log('sd.id', sd.id);
-        // console.log('sd.handshake', sd.handshake);
-        // console.log('sd.rooms', sd.rooms);
-        // console.log('sd.data', sd.data);
+        // via Socket Room
+        let companyOnlineUserRoom = `company:${user.company_name}:online_user_room`;
+        const socketsData = await io.in(companyOnlineUserRoom).fetchSockets();
+        if(socketsData) {
+            for(let [index, sd] of socketsData.entries()) {
+                // dev debug
+                // console.log('sd.id', sd.id);
+                // console.log('sd.handshake', sd.handshake);
+                // console.log('sd.rooms', sd.rooms);
+                // console.log('sd.data', sd.data);
 
-        onlineUsers[index] = sd.data.user;
-      }
+                onlineUsers[index] = sd.data.user;
+            }
 
-      io.to(companyOnlineUserRoom).emit('users.online', onlineUsers); // to all user in a company
+            io.to(companyOnlineUserRoom).emit('users.online', onlineUsers); // to all user in a company
+        }
     }
-  }
 
-  return onlineUsers;
+    return onlineUsers;
 };
 
 /**
@@ -180,50 +180,50 @@ const clientGetAndJoinRoom = async (socket) => {
  * Get user room and join client to existing room
  */
 const userGetAndJoinRoom = async (socket) => {
-  const user = socket.request.session.user;
+    const user = socket.request.session.user;
 
-  if (user.id) {
-    // Join On Going Chat Room
-    const userRooms = await redisClient.zrange(`user:${user.id}:rooms`, 0, -1);
-    for (let item of userRooms) {
-      socket.join(item);
-      console.log('User joined: ', item);
-    }
-
-    // Join Company Online User Room
-    let companyOnlineUserRoom = `company:${user.company_name}:online_user_room`;
-    socket.join(companyOnlineUserRoom);
-
-    // Join Department Room
-    // Agent will get notified if there is new pending chat
-    let pendingDepartmentRoom = `company:${user.company_name}:dept:${user.department_name}:pending_chat_room`;
-    socket.join(pendingDepartmentRoom);
-
-    // Join Pending Transfer to Department Room
-    let pendingTransferDepartmentRoom = `company:${user.company_name}:dept:${user.department_name}:pending_transfer_chat_room`;
-    socket.join(pendingTransferDepartmentRoom);
-
-    // Join Pending Transfer to Agent's Room
-    let pendingTransferAgentRoom = `user:${user.id}:pending_transfer_chat_room`;
-    socket.join(pendingTransferAgentRoom);
-
-    // Join Pending Transfer Members Room
-    // Means that agent has ever handled the chat before chat is transferred
-    let pendingTransferMemberRoomKey = `user:${user.id}:pending_transfer_socket_room`
-    let pendingTransferMemberRoom = await redisClient.zrange(pendingTransferMemberRoomKey, 0, -1)
-    if(pendingTransferMemberRoom || pendingTransferMemberRoom.length > 0) {
-        for (let item of pendingTransferMemberRoom) {
+    if(user.id) {
+        // Join On Going Chat Room
+        const userRooms = await redisClient.zrange(`user:${user.id}:rooms`, 0, -1);
+        for(let item of userRooms) {
             socket.join(item);
+            console.log('User joined: ', item);
         }
-    }
 
-    // Save user data to socket data
-    socket.data.user = user;
-  }
+        // Join Company Online User Room
+        let companyOnlineUserRoom = `company:${user.company_name}:online_user_room`;
+        socket.join(companyOnlineUserRoom);
+
+        // Join Department Room
+        // Agent will get notified if there is new pending chat
+        let pendingDepartmentRoom = `company:${user.company_name}:dept:${user.department_name}:pending_chat_room`;
+        socket.join(pendingDepartmentRoom);
+
+        // Join Pending Transfer to Department Room
+        let pendingTransferDepartmentRoom = `company:${user.company_name}:dept:${user.department_name}:pending_transfer_chat_room`;
+        socket.join(pendingTransferDepartmentRoom);
+
+        // Join Pending Transfer to Agent's Room
+        let pendingTransferAgentRoom = `user:${user.id}:pending_transfer_chat_room`;
+        socket.join(pendingTransferAgentRoom);
+
+        // Join Pending Transfer Members Room
+        // Means that agent has ever handled the chat before chat is transferred
+        let pendingTransferMemberRoomKey = `user:${user.id}:pending_transfer_socket_room`
+        let pendingTransferMemberRoom = await redisClient.zrange(pendingTransferMemberRoomKey, 0, -1)
+        if(pendingTransferMemberRoom || pendingTransferMemberRoom.length > 0) {
+            for(let item of pendingTransferMemberRoom) {
+                socket.join(item);
+            }
+        }
+
+        // Save user data to socket data
+        socket.data.user = user;
+    }
 };
 
 const userInsertAndJoinRoom = async (io, socket, id) => {
-    if (socket.request.session.user === undefined) {
+    if(socket.request.session.user === undefined) {
         return {
             data: roomId,
             message: 'Failed join into chat room. Please login to continue',
@@ -242,7 +242,7 @@ const userInsertAndJoinRoom = async (io, socket, id) => {
 
     // Check if keys exists
     let existingKeys = await redisClient.keys(`*room:${chatId}`)
-    if (existingKeys.length < 0) {
+    if(existingKeys.length < 0) {
         console.error('userJoinRoom: empty keys')
         return {
             data: roomId,
@@ -286,9 +286,9 @@ const userInsertAndJoinRoom = async (io, socket, id) => {
     let agentPendingTransferChatRoom = `user:${user.id}:pending_transfer_chats`
 
     let isExistsInPending = await redisClient.zrank(pendingChatInDepartment, roomId)
-    if (isExistsInPending || isExistsInPending == 0) {
+    if(isExistsInPending || isExistsInPending == 0) {
         let removeKeyInPending = await redisClient.zrem(pendingChatInDepartment, roomId)
-        if (!removeKeyInPending)
+        if(!removeKeyInPending)
             console.error(`error remove ${roomId} from ${pendingChatInDepartment}`)
     }
 
@@ -297,9 +297,9 @@ const userInsertAndJoinRoom = async (io, socket, id) => {
 
     // Check if room is in "agent's pending transfer"
     let isExistsInAgentPT = await redisClient.zrank(agentPendingTransferChatRoom, roomId)
-    if (isExistsInAgentPT || isExistsInAgentPT == 0) {
+    if(isExistsInAgentPT || isExistsInAgentPT == 0) {
         let removeKeyInPending = await redisClient.zrem(agentPendingTransferChatRoom, roomId)
-        if (!removeKeyInPending)
+        if(!removeKeyInPending)
             console.error(`error remove ${roomId} from ${agentPendingTransferChatRoom}`)
     }
 
@@ -330,10 +330,10 @@ const userInsertAndJoinRoom = async (io, socket, id) => {
 }
 
 module.exports = {
-  createUserAuth,
-  initAllConnectedUsers,
-  userInsertAndJoinRoom,
-  clientGetAndJoinRoom,
-  getCompanyOnlineUsers,
-  userGetAndJoinRoom,
+    createUserAuth,
+    initAllConnectedUsers,
+    userInsertAndJoinRoom,
+    clientGetAndJoinRoom,
+    getCompanyOnlineUsers,
+    userGetAndJoinRoom,
 };

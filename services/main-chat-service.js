@@ -321,9 +321,6 @@ const endChat = async(io, socket, data) => {
     let sender = socket.request.session.user
     let chatId = data.chatId
     let roomId = ''
-
-    console.log('End chat for id', chatId)
-
     // Check if room exists
     let getMessages = await getMessagesByChatId(chatId)
     if(!getMessages.room) {
@@ -334,8 +331,12 @@ const endChat = async(io, socket, data) => {
         }
     }
 
+    // Add info whose end the chat, client/agent
+    // add client email/identifier to bubblechat [0]
+    // add agent id to bubblechat [0]
+    // add type, chat_end_by: agent/client
+
     roomId = getMessages.room
-    let agentOngoingRoomKey = `user:${sender.id}:rooms`
     let ongoingRoomMembersKey = `${roomId}:members`
     let pendingChatTransferMemberKey = `${roomId}:pending_transfer_members` // rooms only contains agent id
     let unixtime = getCurrentDateTime('unix')
@@ -347,12 +348,9 @@ const endChat = async(io, socket, data) => {
 
     // Add resolve chat (room id) to agents' resolve chats list
     let roomMembers = null
-
-    // Get agents from "pending transfer room members"
-    roomMembers = await redisClient.zrange(pendingChatTransferMemberKey, 0, -1)
+    roomMembers = await redisClient.zrange(pendingChatTransferMemberKey, 0, -1) // Get agents from "pending transfer room members"
     if(!roomMembers) {
-        // Get agents from "on going room members"
-        roomMembers = await redisClient.zrange(ongoingRoomMembersKey, 0, -1)
+        roomMembers = await redisClient.zrange(ongoingRoomMembersKey, 0, -1) // Get agents from "on going room members"
     }
 
     if(roomMembers && roomMembers.length > 0) {
@@ -376,21 +374,34 @@ const endChat = async(io, socket, data) => {
     }
 
     /** Emit to FE */
-    // Emit only to all agents that handled the chat
-    // get socket in `${roomId}:pending_transfer_members`
-    // and then loop through the list
-    // for(agent of allAgents) {
-        // let listResolve = await getResolveListByUser(socket)
-        // let ongoingList = await getOngoingListByUser(socket)
-        // let result = {
-        //     resolve: listResolve,
-        //     ongoing: ongoingList,
-        //     message: `End chat for chat id ${chatId}`
-        // }
+    let resultMessage = {
+        success: true,
+        message: `Chat ${chatId} has resolved successfully!`
+    }
 
-        // io.to(agentSocket.id).emit('chat.ongoing', ongoingList)
-        // io.to(agentSocket.id).emit('chat.resolve', listResolve)
-    // }
+    let socketInPTRoomMember = await io.in(pendingChatTransferMemberKey).fetchSockets()
+    if(socketInPTRoomMember) {
+        for(let [index, sd] of socketInPTRoomMember.entries()) {
+            if(sd.data.user) {
+                // Emit data to each agent
+                // Emit resolve chat
+                let listResolve = await getResolveListByUser(sd)
+                io.to(sd.id).emit('chat.resolve', listResolve)
+
+                // Emit on going to only "last handled by agent"
+                if(sender.id == sd.data.user.id) {
+                    let ongoingList = await getOngoingListByUser(sd)
+                    io.to(sd.id).emit('chat.ongoing', ongoingList)
+                    io.to(sd.id).emit('chat.endresult', resultMessage)
+                }
+
+                // Remove "transfer_socket_room" from each agent
+                // So, agent will not listen to room again even if agent refresh page
+                let agentPTSocketRoomKey = `user:${sd.data.user.id}:pending_transfer_socket_room`
+                let deletePTSocketRoomFromAgent = await redisClient.zrem(agentPTSocketRoomKey, pendingChatTransferMemberKey)
+            }
+        }
+    }
 
     // Emit to client's resolve chat
     // get socket from roomID
@@ -400,16 +411,14 @@ const endChat = async(io, socket, data) => {
     // then remove from redis
     // remove loop user:75:pending_transfer_socket_room
 
-    // dev debug
-    io.to(pendingChatTransferMemberKey).emit('chat.resolve', `there is resolve chat ${roomId}`)
-
     // Take out (leave) agent and user from room id
     io.in(roomId).socketsLeave(roomId);
 
     // Remove key
-    // `${roomId}:pending_transfer_members`
+    await redisClient.del(pendingChatTransferMemberKey)
+    await redisClient.del(`${roomId}:members`)
 
-    // return result
+    return resultMessage
 }
 
 /**
