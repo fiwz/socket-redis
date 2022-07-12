@@ -114,11 +114,22 @@
                                 <p class="mb-1">Transfer to Agent</p>
                               </div>
                             <div id="fetch-message"></div>
-                            <input type="text" id="transfer-chat-id" name="transfer_chat_id" class="mb-3 form-control" placeholder="Chat ID" />
-                            <input type="text" id="transfer-to-agent" name="transfer_to_agent" class="mb-3 form-control" placeholder="Agent ID" />
-                            <input type="button" id="btn-transfer-chat" class="btn btn-success" value="Transfer Chat">
+                            <input type="text" name="transfer_chat_id" class="transfer-chat-id mb-3 form-control" placeholder="Chat ID" />
+                            <input type="text" name="transfer_to_agent" class="transfer-to-agent mb-3 form-control" placeholder="Agent ID" />
+                            <input type="button" class="btn-transfer-chat btn btn-success" value="Transfer Chat">
 
                         </div>
+
+                        <div class="col-6">
+                            <div class="d-flex mb-3">
+                                <p class="mb-1">Transfer to Department</p>
+                              </div>
+                            <div id="fetch-message"></div>
+                            <input type="text" name="transfer_chat_id" class="transfer-department-chat-id mb-3 form-control" placeholder="Chat ID" />
+                            <input type="text" name="transfer_to_department" class="transfer-department-slug mb-3 form-control" placeholder="Department Slug" value="finance" />
+                            <input type="button" class="btn-transfer-chat-department btn btn-success" value="Transfer Chat">
+                        </div>
+
                     </div>
                 </div>
             </div>

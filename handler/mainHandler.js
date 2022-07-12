@@ -25,7 +25,7 @@ const {
 
 module.exports = async (io, socket) => {
     // console.log('==========', 'user session', socket.request.session);
-    console.log('A user is connected to socket');
+    console.log('A user is connected to socket', socket.request.session);
 
     await initAllConnectedUsers(io, socket, true);
 
@@ -122,32 +122,30 @@ module.exports = async (io, socket) => {
     });
 
     socket.on('disconnect', async () => {
-        // leave room based on user
-        // code...
-
         if(socket.request.session.user !== undefined) {
-            const user = socket.request.session.user;
+            const user = socket.request.session.user
             if(user.id) {
                 // Leave Company Room
-                await redisClient.zrem(
-                    `company:${user.company_name}:online_users`,
-                    user.id
-                ); // remove from redis
-                let companyOnlineUserRoom = `company:${user.company_name}:online_user_room`;
-                io.in(socket.id).socketsLeave(companyOnlineUserRoom); // leave socket
+                // will automatically leave when user disconnect
+
+                // Remove from redis
+                await redisClient.zrem(`company:${user.company_name}:online_users`, user.id) // remove from company online users in redis
+                let usersInDepartmentKey = `company:${user.company_name}:dept:${user.department_name}:users`
+                await redisClient.srem(usersInDepartmentKey, user.id) // remove from company department's users in redis
 
                 // Emit to FE
                 // Get Latest Online Users
-                const companyOnlineUsers = await getCompanyOnlineUsers(io, socket);
-                io.to(companyOnlineUserRoom).emit('users.offline', companyOnlineUsers);
+                let companyOnlineUserRoom = `company:${user.company_name}:online_user_room`
+                const companyOnlineUsers = await getCompanyOnlineUsers(io, socket)
+                io.to(companyOnlineUserRoom).emit('users.offline', companyOnlineUsers)
 
-                console.log('user is offline: ', user.id);
+                console.log('user is offline: ', user.id)
             } else {
                 await redisClient.srem(
                     `company:${socket.request.session.user.company_name}:online_clients`,
                     socket.request.session.user.email
-                );
-                console.log('client is offline: ', socket.request.session.user.email);
+                )
+                console.log('client is offline: ', socket.request.session.user.email)
             }
         }
     });

@@ -81,7 +81,10 @@ const initAllConnectedUsers = async (io, socket, withReturnData = false) => {
                 getCurrentDateTime('unix'),
                 user.id
             );
-            // console.log(`User is connected: ${user.id}`)
+
+            // Add to company department's users in redis
+            let usersInDepartmentKey = `company:${user.company_name}:dept:${user.department_name}:users`
+            await redisClient.sadd(usersInDepartmentKey, user.id)
 
             userGetAndJoinRoom(socket);
 
@@ -274,6 +277,7 @@ const userInsertAndJoinRoom = async (io, socket, id) => {
     await redisClient.zadd(pendingChatTransferMemberKey, unixtime, user.id)
     await redisClient.zadd(`user:${user.id}:pending_transfer_socket_room`, unixtime, pendingChatTransferMemberKey)
     socket.join(pendingChatTransferMemberKey)
+
     // add to redis user:49:member_of_pending_transfer_chat_room
     // zadd user:49:member_of_pending_transfer_chat_room `${roomId}:pending_transfer_members`
     // get user:49:member_of_pending_transfer_chat_room, then loop and join agent to that room
@@ -287,6 +291,8 @@ const userInsertAndJoinRoom = async (io, socket, id) => {
     let currentCompanyName = user.company_name
     let pendingChatInDepartment = `company:${currentCompanyName}:dept:${currentDepartmentName}:pending_chats`
     let agentPendingTransferChatRoom = `user:${user.id}:pending_transfer_chats`
+    let departmentPTRoomKey = `company:${user.company_name}:dept:${user.department_name}:pending_transfer_chats`
+    let departmentPTSocketRoom = `company:${user.company_name}:dept:${user.department_name}:pending_transfer_chat_room`
 
     let isExistsInPending = await redisClient.zrank(pendingChatInDepartment, roomId)
     if(isExistsInPending || isExistsInPending == 0) {
@@ -296,7 +302,12 @@ const userInsertAndJoinRoom = async (io, socket, id) => {
     }
 
     // Check if room is in "pending transfer list by department"
-    // code...
+    let isExistsInDepartmentPT = await redisClient.zrank(departmentPTRoomKey, roomId)
+    if(isExistsInDepartmentPT || isExistsInDepartmentPT == 0) {
+        let removeKeyInPending = await redisClient.zrem(departmentPTRoomKey, roomId)
+        if(!removeKeyInPending)
+            console.error(`error remove ${roomId} from ${departmentPTRoomKey}`)
+    }
 
     // Check if room is in "agent's pending transfer"
     let isExistsInAgentPT = await redisClient.zrank(agentPendingTransferChatRoom, roomId)
@@ -308,7 +319,7 @@ const userInsertAndJoinRoom = async (io, socket, id) => {
 
     let pendingList = await getPendingListByUser(socket)
     let ongoingList = await getOngoingListByUser(socket)
-    let pendingTransferList = await getPendingTransferListByUser(socket)
+    let pendingTransferList = []
     let result = {
         chat_detail: chatResult,
         message: 'Successfully join into chat room!',
@@ -321,13 +332,25 @@ const userInsertAndJoinRoom = async (io, socket, id) => {
     /**
      * Emit to FE
      */
+    // Emit to agent who took the chat
     io.to(socket.id).emit('chat.ongoing', ongoingList)
     io.to(socket.id).emit('chat.pending', pendingList)
-    io.to(socket.id).emit('chat.pendingtransfer', pendingTransferList)
     io.to(socket.id).emit('room.joinresult', {
         message: result.message,
         success: result.success
     })
+
+    // Emit list pending transfer to all agent
+    if(isExistsInDepartmentPT || isExistsInDepartmentPT == 0) { // IF IN LIST TRANSFER TO DEPARTMENT
+        let mySockets = await io.in(departmentPTSocketRoom).fetchSockets();
+        for([index, agentSd] of mySockets.entries()) {
+            pendingTransferList = await getPendingTransferListByUser(agentSd)
+            io.to(agentSd.id).emit('chat.pendingtransfer', pendingTransferList)
+        }
+    } else {
+        pendingTransferList = await getPendingTransferListByUser(socket)
+        io.to(socket.id).emit('chat.pendingtransfer', pendingTransferList)
+    }
 
     return result
 }
