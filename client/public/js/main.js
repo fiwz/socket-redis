@@ -234,6 +234,8 @@ $(() => {
 
   /**
    * On Click in List On Going
+   * On Click in List Resolve
+   * On Click in List Resolve in Client
    *
    * Show bubbles/chat detail
    */
@@ -257,6 +259,8 @@ $(() => {
       })
       .then(function (response) {
         let message = response.data.data;
+        console.log('API GET chat-details/chatId', message)
+
         $('#fetch-message').html('');
         if (message.chat_reply) {
             message.chat_reply.forEach((chat, idx) => {
@@ -279,42 +283,22 @@ $(() => {
         alert('oops');
         console.error(error);
       });
-  });
 
-  $(document).on('click', '#my-chats #resolve ul li', function (e) {
-    let elementId = $(this).attr('id');
-    let chatId = elementId;
-    if (elementId.search(':') != -1) {
-      let roomArr = elementId.split(':');
-      chatId = roomArr.pop();
-    }
-
-    axios.get(`${BASE_URL}/chat-details/${chatId}`, {
+    axios.get(`${BASE_URL}/client-details/${chatId}`, {
         headers: {
           'Content-Type': 'application/json',
         },
         withCredentials: true,
         // other configuration there
-    })
-    .then(function (response) {
-        let message = response.data.data;
-        $('#fetch-message').html('');
-        if (message.chat_reply) {
-            message.chat_reply.forEach((chat, idx) => {
-                $('#fetch-message').append(`
-                    <div style='margin-bottom: 8px;'>
-                        <p style='margin: 0px;'>${chat.agent_name ? chat.agent_name : chat.from}</p>
-                        <p style='margin: 0px;'>${chat.message}</p>
-                        <small>${chat.formatted_date}</small>
-                    </div
-                `);
-            });
-        } // end if
-    })
-    .catch(function (error) {
+      })
+      .then(function (response) {
+        let clientData = response.data.data;
+        console.log('API GET client-details/chatId', clientData)
+      })
+      .catch(function (error) {
         alert('oops');
         console.error(error);
-    });
+      });
 
   });
 
