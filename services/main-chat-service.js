@@ -191,7 +191,6 @@ const getClientResolveList = async (socket) => {
     return clientResolveList
 }
 
-
 /**
  * Fetch messages (bubbles/chat replies)
  * from given chat id
@@ -206,7 +205,7 @@ const getMessagesByChatId = async (id) => {
     chatResult.chat_reply = []
     chatResult.chat_id = chatId
 
-    let existingKeys = await redisClient.keys(`*room:${chatId}`)
+    let existingKeys = await redisClient.keys(`*roomzzzzzzzzzzzz:${chatId}`)
     if(existingKeys.length <= 0 ) {
         console.log('empty keys')
         return chatResult
@@ -218,6 +217,28 @@ const getMessagesByChatId = async (id) => {
     chatResult.chat_reply = JSON.parse(bubbles)
 
     return chatResult
+}
+
+/**
+ * Show client's detail
+ * from given chat id
+ *
+ * @param {String} id
+ * @returns
+ */
+ const getClientDetailByChatId = async (id) => {
+    let getMessages = await getMessagesByChatId(id)
+    let clientDetail = null
+    if(getMessages.chat_reply && getMessages.chat_reply.length > 0) {
+        let firstMessage = getMessages.chat_reply[0]
+        clientDetail = {
+            user_email: firstMessage.from,
+            user_name: firstMessage.user_name,
+            user_phone: firstMessage.phone ? firstMessage.phone : null,
+        }
+    }
+
+    return clientDetail
 }
 
 /**
@@ -350,6 +371,8 @@ const sendMessage = async(io, socket, data) => {
 
     // Save to db
     let saveMsg = await redisClient.call('JSON.ARRAPPEND', roomId, '.', JSON.stringify(chatContent))
+
+    chatContent.success = true
 
     io.to(roomId).emit('show.room', chatContent)
     io.to(roomId).emit('message', chatContent)
@@ -560,6 +583,7 @@ module.exports = {
     endChat,
     generateChatId,
     getAllChatList,
+    getClientDetailByChatId,
     getClientOngoingChat,
     getClientResolveList,
     getMessagesByChatId,

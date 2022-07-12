@@ -63,6 +63,7 @@ const {
 } = require('./services/user-service');
 const {
   generateChatId,
+  getClientDetailByChatId,
   getMessagesByChatId,
   getPendingListByRoomKey,
 } = require('./services/main-chat-service');
@@ -137,129 +138,14 @@ var chat_messages = [];
 /**
  * UI
  */
-app.get('/ui', function (req, res) {
-  res.sendFile(path.join(__dirname + '/views/index.html'));
-  //__dirname : It will resolve to your project folder.
-});
+// app.get('/ui', function (req, res) {
+//   res.sendFile(path.join(__dirname + '/views/index.html'));
+//   //__dirname : It will resolve to your project folder.
+// });
 
 /**
  *  API
  */
-// API - Join Chat
-app.post('/join', function (req, res) {
-  var username = req.body.username;
-  redisF
-    .chattersData()
-    .then(async (response) => {
-      let arrChatters = [];
-      if (response) {
-        arrChatters = JSON.parse(response);
-      }
-      arrChatters.push(username);
-      await redisClient.call(
-        'JSON.SET',
-        'chat_users',
-        '.',
-        JSON.stringify(arrChatters)
-      );
-
-      // emit
-      mainNamespace.emit('count_chatters', {
-        numberOfChatters: arrChatters.length,
-        member_joined: arrChatters,
-      });
-
-      return responseData(res, 200, {
-        chatters: arrChatters,
-        status: 'OK',
-      });
-    })
-    .catch((error) => {
-      console.log('Error Join Chat ', error);
-      return responseData(res, 200, {
-        chatters: [],
-        status: 'Error',
-      });
-    });
-});
-
-// API - Leave Chat
-app.post('/leave', function (req, res) {
-  var username = req.body.username;
-  chatters.splice(chatters.indexOf(username), 1);
-  redisClient.set('chat_users', JSON.stringify(chatters));
-  return responseData(res, 200, {
-    status: 'OK',
-  });
-});
-
-// API - Send + Store Message
-app.post('/send_message', async function (req, res) {
-  var username = req.body.username;
-  var message = req.body.message;
-
-  let newmsg = {
-    sender: username,
-    message: message,
-  };
-
-  redisF
-    .chatAppMessages()
-    .then(async (response) => {
-      let arrMsg = [];
-      if (response.length !== 0) {
-        arrMsg = JSON.parse(response);
-      }
-      arrMsg.push(newmsg);
-      await redisClient.call(
-        'JSON.SET',
-        'chat_app_messages',
-        '.',
-        JSON.stringify(arrMsg)
-      );
-
-      return responseData(res, 200, { status: 'OK' });
-    })
-    .catch((error) => {
-      console.log('Error Send Message ', error);
-      return responseData(res, 200, []);
-    });
-});
-
-// API - Get Messages
-app.get('/get_messages', async function (req, res) {
-  redisF
-    .chatAppMessages()
-    .then((response) => {
-      let messageData = [];
-      messageData = JSON.parse(response);
-      return responseData(res, 200, messageData);
-    })
-    .catch((error) => {
-      console.log('Error Get Messages ', error);
-      return responseData(res, 200, []);
-    });
-});
-
-// API - Get Chatters
-app.get('/get_chatters', async function (req, res) {
-  redisF
-    .chattersData()
-    .then((response) => {
-      let userData = [];
-      if (userData) {
-        userData = JSON.parse(response);
-      }
-
-      return responseData(res, 200, {
-        numberOfChatters: userData.length,
-        member_joined: userData,
-      });
-    })
-    .catch((error) => {
-      return responseData(res, 200, { numberOfChatters: 0, member_joined: [] });
-    });
-});
 
 // API - Login
 app.post('/login', async function (req, res) {
@@ -388,43 +274,6 @@ app.post('/logout', auth, async (req, res) => {
   return responseMessage(res, 200, 'Logout Success');
 });
 
-// API - Pending Messages
-app.get('/:companyName/chats/pending', auth, async (req, res) => {
-  const companyName = 'A';
-  const userDept = 'general';
-  const pendingList = await redisClient.smembers(
-    `company:${companyName}:dept:${userDept}:pending_chats`
-  );
-  let pendingChats = {};
-  pendingList.forEach((pd, idx) => {
-    console.log('pd:', pd, idx);
-    pendingChats[idx] = pd;
-  });
-
-  return responseData(res, 200, pendingChats);
-});
-
-// API - send message example
-app.get('/send-message', async (req, res) => {
-  const currentClient = req.session.user;
-  if (currentClient) {
-    mainNamespace
-      .to(`company:gina-company:dept:developer:pending_chat_room`)
-      .emit(
-        'chat.pending',
-        JSON.stringify({
-          roomId: `company:A:room:chatId-dummy`,
-          chatId: 'chatId-dummy',
-          from: `${currentClient.email}`,
-          message: 'There is Pending Msg',
-        })
-      );
-    return responseData(res, 200, currentClient);
-  } else {
-    return responseMessage(res, 403, 'Client is not logged in', false);
-  }
-});
-
 /** Fetch messages from a selected room */
 app.get('/chat-details/:id', auth, async (req, res) => {
   try {
@@ -437,6 +286,21 @@ app.get('/chat-details/:id', auth, async (req, res) => {
       return responseData(res, 200, messages);
   } catch (err) {
     return responseMessage(res, 404, 'Error fetch messages' + err, false);
+  }
+});
+
+/** Fetch client info from a selected room */
+app.get('/client-details/:id', auth, async (req, res) => {
+  try {
+    const chatID = req.params.id;
+    const clientDetail = await getClientDetailByChatId(chatID);
+
+    if(!clientDetail)
+      return responseMessage(res, 404, 'Error get client detail. Data is not found', false);
+
+      return responseData(res, 200, clientDetail);
+  } catch (err) {
+    return responseMessage(res, 404, 'Error get client detail' + err, false);
   }
 });
 
