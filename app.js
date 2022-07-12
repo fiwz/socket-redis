@@ -204,6 +204,10 @@ app.post('/login-client', async function (req, res) {
       message: user.message,
       department_name: user.department_name,
       topic_name: user.topic_name,
+
+      // add channel name (soon to be dynamic)
+      id_channel: 1,
+      channel_name: 'Livechat',
     },
   };
 

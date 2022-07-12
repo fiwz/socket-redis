@@ -22,9 +22,11 @@ let predefinedChatKeys = {
     agent_id: null,
     agent_name: null,
     agent_uuid: null,
+    channel_name: null,
     chat_id: null, // item.split(':').pop()
     department_name: null,
     formatted_date: null,
+    id_channel: null,
     message: null,
     room: null, // item
     topic_name: null,
@@ -205,7 +207,7 @@ const getMessagesByChatId = async (id) => {
     chatResult.chat_reply = []
     chatResult.chat_id = chatId
 
-    let existingKeys = await redisClient.keys(`*roomzzzzzzzzzzzz:${chatId}`)
+    let existingKeys = await redisClient.keys(`*room:${chatId}`)
     if(existingKeys.length <= 0 ) {
         console.log('empty keys')
         return chatResult
@@ -215,6 +217,30 @@ const getMessagesByChatId = async (id) => {
     chatResult.room = roomId
     let bubbles = await redisClient.call('JSON.GET', roomId)
     chatResult.chat_reply = JSON.parse(bubbles)
+
+    // samakan dengan yang ada di get by many chat room
+    // DRY
+    // code...
+
+    // Set Users Key
+    if(chatResult.chat_reply && chatResult.chat_reply.length > 0) {
+        let firstMessage = chatResult.chat_reply[0]
+        chatResult.user_email = firstMessage.from
+        chatResult.user_name = firstMessage.user_name
+        chatResult.user_phone = firstMessage.phone
+    }
+
+    // Set Agent Key
+    let chatRoomMembersKey = `${roomId}:members`
+    let agentsInChatRoom = await redisClient.zrange(chatRoomMembersKey, 1, -1) // start from index 1
+    if(agentsInChatRoom) {
+        let agentId = agentsInChatRoom.pop()
+        let agentDataKey = `user:${agentId}`
+        let agentData = await redisClient.hgetall(agentDataKey)
+        chatResult.agent_email = agentData.email_agent ? agentData.email_agent : null
+        chatResult.agent_id = agentData.agent_id ? agentData.agent_id : null
+        chatResult.agent_name = agentData.name_agent ? agentData.name_agent : null
+    }
 
     return chatResult
 }
@@ -229,12 +255,11 @@ const getMessagesByChatId = async (id) => {
  const getClientDetailByChatId = async (id) => {
     let getMessages = await getMessagesByChatId(id)
     let clientDetail = null
-    if(getMessages.chat_reply && getMessages.chat_reply.length > 0) {
-        let firstMessage = getMessages.chat_reply[0]
+    if(getMessages.chat_reply) {
         clientDetail = {
-            user_email: firstMessage.from,
-            user_name: firstMessage.user_name,
-            user_phone: firstMessage.phone ? firstMessage.phone : null,
+            user_email: getMessages.user_email,
+            user_name: getMessages.user_name,
+            user_phone: getMessages.user_phone,
         }
     }
 
@@ -279,6 +304,8 @@ const getMessagesByChatId = async (id) => {
                         user_phone: firstMessage.phone ? firstMessage.phone : null,
                         department_name: firstMessage.department_name,
                         topic_name: firstMessage.topic_name,
+                        id_channel: firstMessage.id_channel ? firstMessage.id_channel : null,
+                        channel_name: firstMessage.channel_name ? firstMessage.channel_name : null,
                     }
                 }
             }
