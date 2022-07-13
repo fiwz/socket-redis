@@ -56,13 +56,15 @@ const mainRouter = require('./routes/index-router');
 // Set Routing
 // app.use('/main-page', mainRouter)
 
-const { getCurrentDateTime } = require('./utils/helpers');
+const {
+  getCurrentDateTime,
+  generateChatId
+} = require('./utils/helpers');
 const {
   createUserAuth,
   getCompanyOnlineUsers,
 } = require('./services/user-service');
 const {
-  generateChatId,
   getClientDetailByChatId,
   getMessagesByChatId,
   getPendingListByRoomKey,

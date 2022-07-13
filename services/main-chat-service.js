@@ -4,9 +4,10 @@ const redisF = redis.justVariable
 const redisClient = redis.client
 const sub = redis.sub
 
-const moment = require('moment');
-
-const { getCurrentDateTime, getValueByArrayColumn } = require("../utils/helpers");
+const {
+    getCurrentDateTime,
+    getMemberDataFromBubble
+} = require("../utils/helpers");
 
 const {
     successResponseFormat,
@@ -36,26 +37,6 @@ let predefinedChatKeys = {
     user_email: null,
     user_name: null,
     user_phone: null,
-}
-
-/**
- * Generate Chat ID
- *
- * Chat ID length is 15 characters
- * @param {*} length
- * @returns
- */
-const generateChatId = (length=4) => {
-    let result           = '';
-    let characters       = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'; // 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'
-    let charactersLength = characters.length;
-    for ( var i = 0; i < length; i++ ) {
-        result += characters.charAt(Math.floor(Math.random() *
-        charactersLength));
-    }
-    const currentUnix =  moment().unix()
-
-    return `Q${result+currentUnix}`
 }
 
 /**
@@ -310,6 +291,8 @@ const getMessagesByChatId = async (id) => {
                 let latestMessageIndex = (parsedBubbles.length - 1)
                 let latestMessage = parsedBubbles[latestMessageIndex]
 
+                let currentRoomAgentData = await getMemberDataFromBubble(parsedBubbles)
+
                 chatListWithBubble[idx] = {
                     ...chatListWithBubble[idx],
                     ...{
@@ -327,23 +310,23 @@ const getMessagesByChatId = async (id) => {
                 }
 
                 if(withBubble && withBubble == 'WITHBUBBLE') {
+                    if(parsedBubbles.length > 0) {
+                        for(let [index, bubbleItem] of parsedBubbles.entries()) {
+                            bubbleItem.avatar = currentRoomAgentData[bubbleItem.from] ? currentRoomAgentData[bubbleItem.from].avatar : null // agent avatar
+                        }
+                    }
                     chatListWithBubble[idx].chat_reply = parsedBubbles
                 }
-            }
 
-            // Set Agent Key
-            // let chatRoomMembersKey = `${item}:members`
-            // let agentsInChatRoom = await redisClient.zrange(chatRoomMembersKey, 1, -1) // start from index 1
-            // console.log('agentsInChatRoom', agentsInChatRoom)
-            // if(agentsInChatRoom) {
-            //     let agentId = agentsInChatRoom.pop()
-            //     let agentDataKey = `user:${agentId}`
-            //     let agentData = await redisClient.hgetall(agentDataKey)
-            //     chatListWithBubble[idx].avatar = agentData.avatar ? agentData.avatar : null
-            //     chatListWithBubble[idx].agent_email = agentData.email_agent ? agentData.email_agent : null
-            //     chatListWithBubble[idx].agent_id = agentData.agent_id ? agentData.agent_id : null
-            //     chatListWithBubble[idx].agent_name = agentData.name_agent ? agentData.name_agent : null
-            // }
+                // Set Agent Key in List
+                let latestAgentHandleMessage = currentRoomAgentData.pop()
+                if(latestAgentHandleMessage) {
+                    chatListWithBubble[idx].avatar = latestAgentHandleMessage.avatar ? latestAgentHandleMessage.avatar : null
+                    chatListWithBubble[idx].agent_email = latestAgentHandleMessage.email_agent ? latestAgentHandleMessage.email_agent : null
+                    chatListWithBubble[idx].agent_id = latestAgentHandleMessage.agent_id ? latestAgentHandleMessage.agent_id : null
+                    chatListWithBubble[idx].agent_name = latestAgentHandleMessage.name_agent ? latestAgentHandleMessage.name_agent : null
+                }
+            }
 
         } // end for
     }
@@ -637,7 +620,7 @@ const transferChat = async (io, socket, data) => {
     // TRANSFER TO AGENT
     if(data.toAgent) {
         // Emit only to "agent's pending transfer room"
-        let pendingTransferList = await getPendingTransferListByUser(assignedAgentSocket)
+        let pendingTransferList = await getPendingTransferListByUser(assignedAgentSocket[0])
         io.to(agentPTSocketRoom).emit('chat.pendingtransfer', pendingTransferList)
     } else {
         // TRANSFER TO DEPARTMENT
@@ -699,7 +682,6 @@ const checkTransferDestination = async(io, socket, data) => {
 
 module.exports = {
     endChat,
-    generateChatId,
     getAllChatList,
     getClientDetailByChatId,
     getClientOngoingChat,
