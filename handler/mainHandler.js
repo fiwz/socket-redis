@@ -25,7 +25,7 @@ const {
 
 module.exports = async (io, socket) => {
     // console.log('==========', 'user session', socket.request.session);
-    console.log('A user is connected to socket');
+    console.log('A user is connected to socket', socket.request.session);
 
     await initAllConnectedUsers(io, socket, true);
 
