@@ -29,6 +29,7 @@ let predefinedChatKeys = {
     id_channel: null,
     message: null,
     room: null, // item
+    status: null,
     topic_name: null,
     user_avatar: null,
     user_email: null,
@@ -320,6 +321,7 @@ const getMessagesByChatId = async (id) => {
                         topic_name: firstMessage.topic_name,
                         id_channel: firstMessage.id_channel ? firstMessage.id_channel : null,
                         channel_name: firstMessage.channel_name ? firstMessage.channel_name : null,
+                        status: firstMessage.status ? firstMessage.status : null,
                     }
                 }
 
