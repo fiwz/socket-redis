@@ -215,11 +215,7 @@ app.post('/login-client', async function (req, res) {
 
   // create room
   let pendingRoomKey = `company:${user.company_name}:dept:${user.department_name}:pending_chats`;
-  await redisClient.call(
-    'JSON.SET',
-    chatRoom,
-    '.',
-    JSON.stringify(arrChatContent)
+  await redisClient.call('JSON.SET', chatRoom, '.', JSON.stringify(arrChatContent)
   );
   await redisClient.zadd(pendingRoomKey, getCurrentDateTime('unix'), chatRoom);
   await redisClient.set(`client:${user.email}:rooms`, chatRoom);

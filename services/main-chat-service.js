@@ -12,7 +12,6 @@ const {
     successResponseFormat,
     errorResponseFormat
 } = require("../utils/response-handler");
-const e = require('express');
 
 /**
  * Define Variable
@@ -255,6 +254,16 @@ const getMessagesByChatId = async (id) => {
     // Set Users Key
     if(chatResult.chat_reply && chatResult.chat_reply.length > 0) {
         let firstMessage = chatResult.chat_reply[0]
+        let latestMessageIndex = (chatResult.chat_reply.length - 1)
+        let latestMessage = chatResult.chat_reply[latestMessageIndex]
+
+        chatResult.formatted_date = latestMessage.formatted_date
+        chatResult.message = latestMessage.message
+        chatResult.department_name = firstMessage.department_name
+        chatResult.topic_name = firstMessage.topic_name
+        chatResult.id_channel = firstMessage.id_channel ? firstMessage.id_channel : null
+        chatResult.channel_name = firstMessage.channel_name ? firstMessage.channel_name : null
+
         chatResult.user_email = firstMessage.from
         chatResult.user_name = firstMessage.user_name
         chatResult.user_phone = firstMessage.phone
