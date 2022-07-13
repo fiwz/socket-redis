@@ -61,11 +61,31 @@ $(() => {
       uuid: '3353f742-6eab-11ec-a9f4-e0d55e1b6010',
     };
 
+    let dataAuth3 = {
+      agent_id: '76',
+      avatar: 'http://localhost:8000/storage/assets/images/uploads/gravatar/agent-finance-2-76.png',
+      company_name: 'Gina Company',
+      department_name: 'Finance',
+      email_agent: 'agentfinance2@qwords.co.id',
+      id_company: '10',
+      id_department: '30',
+      last_action: null,
+      module: 'is_dashboard',
+      name_agent: 'Agent Finance 2',
+      permission_name: 'Agent',
+      phone_agent: 'null',
+      roles_id: '4',
+      status: 'online',
+      token: 'eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9.eyJhdWQiOiIxIiwianRpIjoiNTZkNmY5OGVlMWY2ZDVmMGIxNzE5NjNjNDJjMDZiYThiNDgyYzJjM2I2NmU3YWQ4Y2YzMTQyNDQ0NTcyNDk4MjI0MGYxMzAyNmNjNGU0NjAiLCJpYXQiOjE2NTc2MDkyODAuNzU1MzE2LCJuYmYiOjE2NTc2MDkyODAuNzU1MzMzLCJleHAiOjE2ODkxNDUyODAuNzM1OTY5LCJzdWIiOiI3NiIsInNjb3BlcyI6W119.I6ZXpdfI-4wMNc0I_TaQTVeE5d0GOjkSnHnU4uPfP7_LmdwOGdyYxQ-xeAL5vncpf8PtcYeII6uZEAKX80AkZUmDZkeeoWKiNIZWCf1I9XPOBNb5FbJ6M9qqkc_XIz4wSYcedivEH9zglHaUV9RJZwwiGf46YO4F6YaGxwh2jZlyQHsj_PD5bmmh0tcaPyGOkiNEDNJ2hwj-dyh-U2y6Z5JTn8XQsjpeUVhiA0CGgmd5jUpg0To-oWyUSY9nU-FSQ0AMhVaie3Wyci5eqCkVMaOh3XFtig0gTcDI_4zRMIy8r7q_H940Ih-ndcjXQAFot8-0Aq5pyM1vYi_GfpV7T9Rb7WwW2YPLzDQqOOr9pL66nePq210Rzcs7-DKZpyQ5RlO02S1jjuNsN8lDVBj5rOjKtrPxic20Mh4HnvC0D_yc46N6k8E86VnsPdSxAMUljRyOYUGy9-ANPIh92hT4XLfeZEoQEYlrGrupa_SW79RY49n9IHXQeMHv2-5pOtFNWyKY_tPHXZbPYhqhntH38o6xFlffxjcl1gXzkLPyjig2v2trJqp9CC9niYXuDpeKBKaukWPUxsLRwFkEkpVzsLmMyqeK7EMt4D2CEnxeux2pk1PqZ9ljUhya2lDZNGEb0Eum4YGKhLAK4yUcEbNJZpl74cgxSFK9uJp5mrfYn6s',
+      type_user: 'agent',
+      uuid: '3b1d27cd-6eab-11ec-a9f4-e0d55e1b6010',
+    };
+
     // With fetch
     const response = fetch(`${BASE_URL}/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(dataAuth),
+      body: JSON.stringify(dataAuth3),
       credentials: 'include',
     }).then((response) => {
       console.log('Login as agent response: ', response);
@@ -336,12 +356,23 @@ $(() => {
     });
   });
 
-  $(document).on('click', '#btn-transfer-chat', function (e) {
-    console.log('agent transfer chat')
+  $(document).on('click', '.btn-transfer-chat', function (e) {
+    console.log('transfer chat to agent')
     let data = {
-        chatId: $('#transfer-chat-id').val(),
-        toAgent: $('#transfer-to-agent').val(),
+        chatId: $('.transfer-chat-id').val(),
+        toAgent: $('.transfer-to-agent').val(),
     }
+
+    socket.emit('chat.transfer', data)
+  })
+
+  $(document).on('click', '.btn-transfer-chat-department', function (e) {
+    let data = {
+        chatId: $('.transfer-department-chat-id').val(),
+        toDepartment: $('.transfer-department-slug').val(),
+    }
+
+    console.log('transfer chat to department', data)
 
     socket.emit('chat.transfer', data)
   })

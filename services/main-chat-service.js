@@ -114,20 +114,44 @@ const getResolveListByUser = async(socket) => {
     return resolveList
 }
 
+/**
+ * Get list of pending transfer chat
+ * by logged in agent
+ *
+ * List contains:
+ * - pending transfer to agent
+ * - pending transfer to department
+ *
+ * @param {*} socket
+ * @returns
+ */
 const getPendingTransferListByUser = async(socket) => {
-    // Pending transfer to agent
-    const user = socket.request.session.user
     if (socket.request.session.user === undefined) {
         return {
             data: null,
             message: 'Failed to fetch data. Please login to continue'
         }
     }
-    let listPendingTransferChatRoom = `user:${user.id}:pending_transfer_chats`
-    let pendingTransferList = await getMessagesByManyChatRoom(listPendingTransferChatRoom)
+
+    const user = socket.request.session.user
+    let pendingTransferList = []
+
+    // Pending transfer to agent
+    let agentPTRoomKey = `user:${user.id}:pending_transfer_chats`
+    let agentListRoomId = await redisClient.zrange(agentPTRoomKey, 0, -1);
 
     // Pending transfer to department
-    // code...
+    let departmentPTRoomKey = `company:${user.company_name}:dept:${user.department_name}:pending_transfer_chats`
+    let departmentListRoomId = await redisClient.zrange(departmentPTRoomKey, 0, -1);
+
+    // Merge list if both list are exist
+    if(agentListRoomId.length > 0 && departmentListRoomId.length > 0) {
+        let arrayRoomId = await redisClient.zunion(2, agentPTRoomKey, departmentPTRoomKey)
+        pendingTransferList = await getMessagesByManyChatRoom(null, arrayRoomId)
+    } else {
+        let roomKey = agentListRoomId.length > 0 ? agentPTRoomKey : departmentPTRoomKey
+        pendingTransferList = await getMessagesByManyChatRoom(roomKey)
+    }
 
     return pendingTransferList
 }
@@ -207,6 +231,11 @@ const getMessagesByChatId = async (id) => {
     chatResult.chat_reply = []
     chatResult.chat_id = chatId
 
+    if(!chatId) {
+        let requestResult = errorResponseFormat(null, 'Failed to get messages. Chat ID not found.')
+        return requestResult
+    }
+
     let existingKeys = await redisClient.keys(`*room:${chatId}`)
     if(existingKeys.length <= 0 ) {
         console.log('empty keys')
@@ -270,14 +299,24 @@ const getMessagesByChatId = async (id) => {
  * Fetch messages (bubbles/chat replies)
  * from many chat room
  *
+ * Can be fetch from
+ * - room category id
+ * - array of room id
+ *
  * @param {String} roomCategory (key that holds list of chat rooms/chat id)
+ * @param {Array} arrayRoomId array list of room id
  * @returns Array
  */
- const getMessagesByManyChatRoom = async(roomCategory) => {
+ const getMessagesByManyChatRoom = async(roomCategory, arrayRoomId=null) => {
     let chatListKey = []
     let chatListWithBubble = []
 
-    chatListKey = await redisClient.zrange(roomCategory, 0, -1);
+    if(roomCategory) {
+        chatListKey = await redisClient.zrange(roomCategory, 0, -1);
+    } else {
+        chatListKey = arrayRoomId
+    }
+
     if(chatListKey) {
         // Mapping data for every chat id (room)
         for(let [idx, item] of chatListKey.entries()) {
@@ -544,19 +583,8 @@ const transferChat = async (io, socket, data) => {
         return requestResult
     }
 
-    // Check if agents is present and not assign to self
-    if(data.toAgent == initiator.id) {
-        requestResult = errorResponseFormat(null, 'Failed to transfer chat. Can not assign to self.')
-        socket.emit('chat.transferresult', requestResult)
-        return requestResult
-    }
-
-    let existingAgentKey = await redisClient.keys(`user:${data.toAgent}`)
-    if(existingAgentKey.length <= 0) {
-        requestResult = errorResponseFormat(null, 'Failed to transfer chat. Assigned agent is not found.')
-        socket.emit('chat.transferresult', requestResult)
-        return requestResult
-    }
+    // Check Transfer Destination
+    await checkTransferDestination(io, socket, data)
 
     roomId = getMessages.room
     let previousAgentOngoingRoomKey = `user:${initiator.id}:rooms`
@@ -565,24 +593,40 @@ const transferChat = async (io, socket, data) => {
     let unixtime = getCurrentDateTime('unix')
 
     // Get Assigned Agent Socket
-    let assignedAgentSocket = null
+    let assignedAgentSocket = []
+    let mySockets = null
     let agentPTSocketRoom = `user:${data.toAgent}:pending_transfer_chat_room`
-    const mySockets = await io.in(agentPTSocketRoom).fetchSockets();
+    let departmentPTSocketRoom = `company:${initiator.company_name}:dept:${data.toDepartment}:pending_transfer_chat_room`
+    // TRANSFER TO AGENT OR DEPARTMENT
+    mySockets = data.toAgent ? (await io.in(agentPTSocketRoom).fetchSockets()) : (await io.in(departmentPTSocketRoom).fetchSockets())
     for (let [index, sd] of mySockets.entries()) {
-        assignedAgentSocket = sd
+        assignedAgentSocket[index] = sd
     }
 
     // Add assigned agent to "chat id's pending transfer member"
     let handledBy = [] // Chat is handled by which agents
-    handledBy.push(getCurrentDateTime('unix'), data.toAgent)
+    let assignedRoomKey = null // WHETRHER CHAT WILL BE TRANSFERRED TO AGENT OR DEPARTMENT ROOM
+    if(data.toAgent) {
+        // TRANSFER TO AGENT
 
-    // Save all "handled by agents" to "chat id's pending transfer member"
-    const addToPTRoom = await redisClient.zadd(pendingChatTransferMemberKey, handledBy)
+        handledBy.push(getCurrentDateTime('unix'), data.toAgent)
 
-    // Add assigned agent to "self's pending transfer room"
+        // Save all "handled by agents" to "chat id's pending transfer member"
+        const addToPTRoom = await redisClient.zadd(pendingChatTransferMemberKey, handledBy)
+
+        // Add assigned agent to "self's pending transfer room"
+        const agentPTRoomKey = `user:${data.toAgent}:pending_transfer_chats`
+        assignedRoomKey = agentPTRoomKey
+    } else {
+        // TRANSFER TO DEPARTMENT
+
+        // Add assigned agent to "company department's pending transfer room"
+        const departmentPTRoomKey = `company:${initiator.company_name}:dept:${data.toDepartment}:pending_transfer_chats`
+        assignedRoomKey = departmentPTRoomKey
+    }
+
     // Save to redis
-    const agentPTRoomKey = `user:${data.toAgent}:pending_transfer_chats`
-    const addToAgentPTRoom = await redisClient.zadd(agentPTRoomKey, unixtime, roomId)
+    const addToDepartmentPTRoom = await redisClient.zadd(assignedRoomKey, unixtime, roomId)
 
     // if addToPTRoom and addToAgentPTRoom is success
     // Remove previous agent from on going room
@@ -593,9 +637,22 @@ const transferChat = async (io, socket, data) => {
     // }
 
     /** Emit to FE */
-    // Emit only to "agent's pending transfer room"
-    let pendingTransferList = await getPendingTransferListByUser(assignedAgentSocket)
-    io.to(agentPTSocketRoom).emit('chat.pendingtransfer', pendingTransferList)
+
+    // TRANSFER TO AGENT
+    if(data.toAgent) {
+        // Emit only to "agent's pending transfer room"
+        let pendingTransferList = await getPendingTransferListByUser(assignedAgentSocket)
+        io.to(agentPTSocketRoom).emit('chat.pendingtransfer', pendingTransferList)
+    } else {
+        // TRANSFER TO DEPARTMENT
+
+        // Emit only to agents in "company department pending transfer room"
+        for([index, agentSd] of assignedAgentSocket.entries()) {
+            console.log('agentSd', agentSd)
+            let pendingTransferList = await getPendingTransferListByUser(agentSd)
+            io.to(agentSd.id).emit('chat.pendingtransfer', pendingTransferList)
+        }
+    }
 
     // Emit to previous agent
     let previousAgentSocketId = socket.id
@@ -603,6 +660,44 @@ const transferChat = async (io, socket, data) => {
     io.to(previousAgentSocketId).emit('chat.ongoing', previousAgentOngoingList)
 
     socket.emit('chat.transferresult', successResponseFormat())
+    return successResponseFormat()
+}
+
+const checkTransferDestination = async(io, socket, data) => {
+    let initiator = socket.request.session.user
+    // TRANSFER TO AGENT
+    if(data.toAgent) {
+        // Check if agents is present and not assign to self
+        if(data.toAgent == initiator.id) {
+            requestResult = errorResponseFormat(null, 'Failed to transfer chat. Can not assign to self.')
+            socket.emit('chat.transferresult', requestResult)
+            return requestResult
+        }
+
+        let existingAgentKey = await redisClient.keys(`user:${data.toAgent}`)
+        if(existingAgentKey.length <= 0) {
+            requestResult = errorResponseFormat(null, 'Failed to transfer chat. Assigned agent is not found.')
+            socket.emit('chat.transferresult', requestResult)
+            return requestResult
+        }
+    } else {
+        // TRANSFER TO DEPARTMENT
+
+        // Check if department is present and not assign to current department
+        if(data.toDepartment == initiator.department_name) {
+            requestResult = errorResponseFormat(null, 'Failed to transfer chat. Can not assign to current department.')
+            socket.emit('chat.transferresult', requestResult)
+            return requestResult
+        }
+
+        let existingDepartmentKey = await redisClient.keys(`company:${initiator.company_name}:dept:${data.toDepartment}:users`)
+        if(existingDepartmentKey.length <= 0) {
+            requestResult = errorResponseFormat(null, 'Failed to transfer chat. Department is not found/no online users.')
+            socket.emit('chat.transferresult', requestResult)
+            return requestResult
+        }
+    }
+
     return successResponseFormat()
 }
 
