@@ -6,7 +6,7 @@ const sub = redis.sub
 
 const moment = require('moment');
 
-const { getCurrentDateTime } = require("../utils/helpers");
+const { getCurrentDateTime, getValueByArrayColumn } = require("../utils/helpers");
 
 const {
     successResponseFormat,
@@ -18,6 +18,7 @@ const {
  */
 let predefinedChatKeys = {
     // chat_reply: [],
+    avatar: null, // agent avatar
     agent_email: null,
     agent_id: null,
     agent_name: null,
@@ -321,25 +322,28 @@ const getMessagesByChatId = async (id) => {
                         topic_name: firstMessage.topic_name,
                         id_channel: firstMessage.id_channel ? firstMessage.id_channel : null,
                         channel_name: firstMessage.channel_name ? firstMessage.channel_name : null,
-                        status: firstMessage.status ? firstMessage.status : null,
+                        status: (firstMessage.status || firstMessage.status == 0) ? firstMessage.status : null,
                     }
                 }
 
-                if(withBubble && withBubble == 'WITHBUBBLE')
+                if(withBubble && withBubble == 'WITHBUBBLE') {
                     chatListWithBubble[idx].chat_reply = parsedBubbles
+                }
             }
 
             // Set Agent Key
-            let chatRoomMembersKey = `${item}:members`
-            let agentsInChatRoom = await redisClient.zrange(chatRoomMembersKey, 1, -1) // start from index 1
-            if(agentsInChatRoom) {
-                let agentId = agentsInChatRoom.pop()
-                let agentDataKey = `user:${agentId}`
-                let agentData = await redisClient.hgetall(agentDataKey)
-                chatListWithBubble[idx].agent_email = agentData.email_agent ? agentData.email_agent : null
-                chatListWithBubble[idx].agent_id = agentData.agent_id ? agentData.agent_id : null
-                chatListWithBubble[idx].agent_name = agentData.name_agent ? agentData.name_agent : null
-            }
+            // let chatRoomMembersKey = `${item}:members`
+            // let agentsInChatRoom = await redisClient.zrange(chatRoomMembersKey, 1, -1) // start from index 1
+            // console.log('agentsInChatRoom', agentsInChatRoom)
+            // if(agentsInChatRoom) {
+            //     let agentId = agentsInChatRoom.pop()
+            //     let agentDataKey = `user:${agentId}`
+            //     let agentData = await redisClient.hgetall(agentDataKey)
+            //     chatListWithBubble[idx].avatar = agentData.avatar ? agentData.avatar : null
+            //     chatListWithBubble[idx].agent_email = agentData.email_agent ? agentData.email_agent : null
+            //     chatListWithBubble[idx].agent_id = agentData.agent_id ? agentData.agent_id : null
+            //     chatListWithBubble[idx].agent_name = agentData.name_agent ? agentData.name_agent : null
+            // }
 
         } // end for
     }
