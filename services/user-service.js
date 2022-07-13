@@ -282,6 +282,12 @@ const userInsertAndJoinRoom = async (io, socket, id) => {
     let messageDetail = await getMessagesByChatId(chatId)
     chatResult = messageDetail
 
+    // UPDATE STATUS
+    // Set status to on going
+    let updateFirstMessageData = messageDetail.chat_reply[0]
+    updateFirstMessageData.status = 1
+    await redisClient.call('JSON.SET', roomId, '[0]', JSON.stringify(updateFirstMessageData))
+
     // Check if room is in "pending list by department"
     let currentDepartmentName = messageDetail.chat_reply[0].department_name
     let currentCompanyName = user.company_name

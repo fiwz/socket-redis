@@ -208,6 +208,10 @@ app.post('/login-client', async function (req, res) {
       // add channel name (soon to be dynamic)
       id_channel: 1,
       channel_name: 'Livechat',
+
+      // add status (soon to be dynamic)
+      // set status to pending
+      status: 0
     },
   };
 

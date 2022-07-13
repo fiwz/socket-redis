@@ -126,7 +126,7 @@ const getResolveListByUser = async(socket) => {
  * @returns
  */
 const getPendingTransferListByUser = async(socket) => {
-    if (socket.request.session.user === undefined) {
+    if (socket.request.session === undefined && socket.request.session.user === undefined) {
         return {
             data: null,
             message: 'Failed to fetch data. Please login to continue'
@@ -483,6 +483,12 @@ const endChat = async(io, socket, data) => {
         await redisClient.zadd(clientResolveRoom, unixtime, roomId) // Add room id to client's resolve list
     }
 
+    // UPDATE STATUS
+    // Set status to resolve
+    let updateFirstMessageData = getMessages.chat_reply[0]
+    updateFirstMessageData.status = 9
+    await redisClient.call('JSON.SET', roomId, '[0]', JSON.stringify(updateFirstMessageData))
+
     /** Emit to FE */
     let resultMessage = {
         success: true,
@@ -613,6 +619,12 @@ const transferChat = async (io, socket, data) => {
         await redisClient.zrem(previousAgentOngoingRoomKey, roomId) // Remove the room from "previous agent's on going room"
         io.in(socket.id).socketsLeave(roomId); // Leave previous agent socket from room id
     // }
+
+    // UPDATE STATUS
+    // Set status to pending transfer
+    let updateFirstMessageData = getMessages.chat_reply[0]
+    updateFirstMessageData.status = 2
+    await redisClient.call('JSON.SET', roomId, '[0]', JSON.stringify(updateFirstMessageData))
 
     /** Emit to FE */
 
