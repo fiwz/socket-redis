@@ -229,7 +229,6 @@ const getMessagesByChatId = async (id) => {
     let roomId = null
     let chatResult = predefinedChatKeys
     chatResult.chat_reply = []
-    chatResult.chat_id = chatId
 
     if(!chatId) {
         let requestResult = errorResponseFormat(null, 'Failed to get messages. Chat ID not found.')
@@ -238,48 +237,14 @@ const getMessagesByChatId = async (id) => {
 
     let existingKeys = await redisClient.keys(`*room:${chatId}`)
     if(existingKeys.length <= 0 ) {
-        console.log('empty keys')
+        console.error('Error in getMessagesByChatId(). Empty room id keys.')
         return chatResult
     }
 
     roomId = existingKeys[0] // return the first keys
-    chatResult.room = roomId
-    let bubbles = await redisClient.call('JSON.GET', roomId)
-    chatResult.chat_reply = JSON.parse(bubbles)
-
-    // samakan dengan yang ada di get by many chat room
-    // DRY
-    // code...
-
-    // Set Users Key
-    if(chatResult.chat_reply && chatResult.chat_reply.length > 0) {
-        let firstMessage = chatResult.chat_reply[0]
-        let latestMessageIndex = (chatResult.chat_reply.length - 1)
-        let latestMessage = chatResult.chat_reply[latestMessageIndex]
-
-        chatResult.formatted_date = latestMessage.formatted_date
-        chatResult.message = latestMessage.message
-        chatResult.department_name = firstMessage.department_name
-        chatResult.topic_name = firstMessage.topic_name
-        chatResult.id_channel = firstMessage.id_channel ? firstMessage.id_channel : null
-        chatResult.channel_name = firstMessage.channel_name ? firstMessage.channel_name : null
-
-        chatResult.user_email = firstMessage.from
-        chatResult.user_name = firstMessage.user_name
-        chatResult.user_phone = firstMessage.phone
-    }
-
-    // Set Agent Key
-    let chatRoomMembersKey = `${roomId}:members`
-    let agentsInChatRoom = await redisClient.zrange(chatRoomMembersKey, 1, -1) // start from index 1
-    if(agentsInChatRoom) {
-        let agentId = agentsInChatRoom.pop()
-        let agentDataKey = `user:${agentId}`
-        let agentData = await redisClient.hgetall(agentDataKey)
-        chatResult.agent_email = agentData.email_agent ? agentData.email_agent : null
-        chatResult.agent_id = agentData.agent_id ? agentData.agent_id : null
-        chatResult.agent_name = agentData.name_agent ? agentData.name_agent : null
-    }
+    let arrayMessageDetail = await getMessagesByManyChatRoom(null, [roomId], 'WITHBUBBLE')
+    if(arrayMessageDetail.length > 0)
+        chatResult = arrayMessageDetail[0]
 
     return chatResult
 }
@@ -315,9 +280,10 @@ const getMessagesByChatId = async (id) => {
  *
  * @param {String} roomCategory (key that holds list of chat rooms/chat id)
  * @param {Array} arrayRoomId array list of room id
+ * @param {String} withBubble null|'WITHBUBBLE'
  * @returns Array
  */
- const getMessagesByManyChatRoom = async(roomCategory, arrayRoomId=null) => {
+ const getMessagesByManyChatRoom = async(roomCategory, arrayRoomId=null, withBubble=null) => {
     let chatListKey = []
     let chatListWithBubble = []
 
@@ -345,7 +311,6 @@ const getMessagesByChatId = async (id) => {
                 chatListWithBubble[idx] = {
                     ...chatListWithBubble[idx],
                     ...{
-                        // chat_reply: parsedBubbles,
                         formatted_date: latestMessage.formatted_date,
                         message: latestMessage.message,
                         user_email: firstMessage.from,
@@ -357,6 +322,9 @@ const getMessagesByChatId = async (id) => {
                         channel_name: firstMessage.channel_name ? firstMessage.channel_name : null,
                     }
                 }
+
+                if(withBubble && withBubble == 'WITHBUBBLE')
+                    chatListWithBubble[idx].chat_reply = parsedBubbles
             }
 
             // Set Agent Key
