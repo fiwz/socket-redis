@@ -213,15 +213,14 @@ const getMessagesByChatId = async (id) => {
     let chatResult = predefinedChatKeys
     chatResult.chat_reply = []
 
-    if(!chatId) {
-        let requestResult = errorResponseFormat(null, 'Failed to get messages. Chat ID not found.')
+    let requestResult = errorResponseFormat(null, 'Failed to get messages. Chat ID not found.')
+    if(!chatId)
         return requestResult
-    }
 
     let existingKeys = await redisClient.keys(`*room:${chatId}`)
     if(existingKeys.length <= 0 ) {
         console.error('Error in getMessagesByChatId(). Empty room id keys.')
-        return chatResult
+        return requestResult
     }
 
     roomId = existingKeys[0] // return the first keys
