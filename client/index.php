@@ -127,6 +127,7 @@
                             <div id="fetch-message"></div>
                             <input type="text" name="transfer_chat_id" class="transfer-department-chat-id mb-3 form-control" placeholder="Chat ID" />
                             <input type="text" name="transfer_to_department" class="transfer-department-slug mb-3 form-control" placeholder="Department Slug" value="finance" />
+                            <input type="button" class="btn-show-department btn btn-primary" value="Show Department">
                             <input type="button" class="btn-transfer-chat-department btn btn-success" value="Transfer Chat">
                         </div>
 

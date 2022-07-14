@@ -1,5 +1,5 @@
 $(() => {
-  const BASE_URL = 'http://localhost:4000'
+  const BASE_URL = 'http://localhost:4001'
   const socket = io(BASE_URL, {
     withCredentials: true,
     autoConnect: true,
@@ -599,7 +599,6 @@ $(() => {
    *
    * Listen if there is logged out user
    */
-  // code...
   socket.on('users.offline', (data) => {
     console.log(
       '(Listen to users.offline) A user has been offline, remaining users: ',
@@ -607,6 +606,21 @@ $(() => {
     );
   });
 
+  /**
+   * Online departments
+   *
+   * Listen if there is logged in/logged out user
+   */
+  socket.on('departments.online', (data) => {
+    console.log(
+      '(Listen to departments.online) Current online departments: ',
+      data
+    );
+  });
+
+  $('.btn-show-department').click(() => {
+    socket.emit('departments.online')
+  })
 
 
   /** Client Area */
