@@ -383,8 +383,6 @@ const sendMessage = async(io, socket, data) => {
         return requestResult
     }
 
-    console.log('getMessages', getMessages)
-
     roomId = getMessages.room // return the first keys
     let datetime = getCurrentDateTime()
 
