@@ -19,13 +19,14 @@ const {
  */
 let predefinedChatKeys = {
     // chat_reply: [],
-    avatar: null, // agent avatar
     agent_email: null,
     agent_id: null,
     agent_name: null,
     agent_uuid: null,
+    avatar: null, // agent avatar
     channel_name: null,
     chat_id: null, // item.split(':').pop()
+    company_name: null,
     department_name: null,
     formatted_date: null,
     id_channel: null,
@@ -300,6 +301,7 @@ const getMessagesByChatId = async (id) => {
                         user_email: firstMessage.from,
                         user_name: firstMessage.user_name,
                         user_phone: firstMessage.phone ? firstMessage.phone : null,
+                        company_name: firstMessage.company_name,
                         department_name: firstMessage.department_name,
                         topic_name: firstMessage.topic_name,
                         id_channel: firstMessage.id_channel ? firstMessage.id_channel : null,
@@ -381,6 +383,8 @@ const sendMessage = async(io, socket, data) => {
         return requestResult
     }
 
+    console.log('getMessages', getMessages)
+
     roomId = getMessages.room // return the first keys
     let datetime = getCurrentDateTime()
 
@@ -406,8 +410,45 @@ const sendMessage = async(io, socket, data) => {
 
     chatContent.success = true
 
+    /** Emit to FE */
     io.to(roomId).emit('show.room', chatContent)
     io.to(roomId).emit('message', chatContent)
+
+    /**
+     * Emit to:
+     * - department pending list
+     * - department pending transfer list
+     * - agent's pending transfer list
+     */
+    if(getMessages.status == 0 || getMessages.status == 2) {
+        let selectedRoom = null
+        let emitKey = null
+        let pendingDepartmentRoom = `company:${getMessages.company_name}:dept:${getMessages.department_name}:pending_chat_room`
+        let pendingTransferDepartmentRoom = `company:${getMessages.company_name}:dept:${getMessages.department_name}:pending_transfer_chat_room`;
+
+        selectedRoom = pendingDepartmentRoom
+        emitKey = 'chat.pending'
+        if(getMessages.status == 2) {
+            selectedRoom = pendingTransferDepartmentRoom
+            emitKey = 'chat.pendingtransfer'
+        }
+
+        // Add condition if chat is pending transfer to agent
+        // code...
+
+        // Add condition if chat is pending transfer to department
+        // code...
+
+        let socketList = await io.in(selectedRoom).fetchSockets()
+        if(socketList) {
+            for(let [index, sd] of socketList.entries()) {
+                if(sd.data.user) {
+                    let listChat = (getMessages.status == 0) ? await getPendingListByUser(sd) : await getPendingTransferListByUser(sd)
+                    io.to(sd.id).emit(emitKey, listChat)
+                }
+            }
+        }
+    }
 }
 
 const endChat = async(io, socket, data) => {

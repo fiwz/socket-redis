@@ -204,6 +204,7 @@ app.post('/login-client', async function (req, res) {
       from: user.email,
       user_name: user.name,
       message: user.message,
+      company_name: user.company_name,
       department_name: user.department_name,
       topic_name: user.topic_name,
 
