@@ -15,7 +15,11 @@ const {
     getPendingTransferListByUser,
 } = require('../services/main-chat-service');
 
-const { getCurrentDateTime, slugify } = require('../utils/helpers');
+const {
+    getCurrentDateTime,
+    slugify,
+    getValueByArrayColumn
+} = require('../utils/helpers');
 
 /**
  * User Session
@@ -91,6 +95,7 @@ const initAllConnectedUsers = async (io, socket, withReturnData = false) => {
             if(withReturnData) {
                 const myChatList = await getAllChatList(socket);
                 const companyOnlineUsers = await getCompanyOnlineUsers(io, socket);
+                const companyOnlineDepartments = await getCompanyOnlineDepartments(io, socket)
 
                 let result = myChatList;
                 result.online_users = companyOnlineUsers;
@@ -105,7 +110,8 @@ const initAllConnectedUsers = async (io, socket, withReturnData = false) => {
                 socket.emit('chat.pendingtransfer', myChatList.pendingtransfer);
 
                 // Emit Online Users
-                io.to(companyOnlineUserRoom).emit('users.online', companyOnlineUsers); // to all user in a company
+                // io.to(companyOnlineUserRoom).emit('users.online', companyOnlineUsers); // to all user in a company
+                // io.to(companyOnlineUserRoom).emit('departments.online', companyOnlineDepartments); // to all user in a company
             }
         } else {
             // If client
@@ -119,6 +125,17 @@ const initAllConnectedUsers = async (io, socket, withReturnData = false) => {
     }
 };
 
+/**
+ * Get online users in a company
+ * based on logged in user
+ *
+ * - Can be fetch by socket
+ * - Can be fetch by request
+ * @param {*} io
+ * @param {*} socket
+ * @param {*} request
+ * @returns
+ */
 const getCompanyOnlineUsers = async (io, socket = null, request = null) => {
     let onlineUsers = [];
     let sourceAuthData = socket ? socket.request.session : request.session;
@@ -157,6 +174,35 @@ const getCompanyOnlineUsers = async (io, socket = null, request = null) => {
 
     return onlineUsers;
 };
+
+/**
+ * Get online departments in a company
+ * - based on logged in users in a company
+ * - based on current logged in user
+ *
+ * @param {*} io
+ * @param {*} socket
+ * @param {*} request
+ * @returns
+ */
+const getCompanyOnlineDepartments = async (io, socket = null, request = null) => {
+    let onlineDepartments = [];
+    let sourceAuthData = socket ? socket.request.session : request.session;
+
+    if(sourceAuthData.user !== undefined) {
+        const user = sourceAuthData.user;
+        let companyOnlineUserRoom = `company:${user.company_name}:online_user_room`;
+
+        // Get Department By Online Users via Socket
+        let onlineUsers = await getCompanyOnlineUsers(io, socket, request)
+        onlineDepartments = await getValueByArrayColumn(onlineUsers, 'department_name', 'DISTINCT')
+
+        /** Emit to FE */
+        io.to(companyOnlineUserRoom).emit('departments.online', onlineDepartments); // to all user in a company
+    }
+
+    return onlineDepartments;
+}
 
 /**
  * Client Get And Join Room
@@ -362,6 +408,7 @@ const userInsertAndJoinRoom = async (io, socket, id) => {
 module.exports = {
     clientGetAndJoinRoom,
     createUserAuth,
+    getCompanyOnlineDepartments,
     getCompanyOnlineUsers,
     initAllConnectedUsers,
     userGetAndJoinRoom,

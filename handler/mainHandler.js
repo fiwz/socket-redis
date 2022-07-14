@@ -16,11 +16,11 @@ const {
 } = require('../services/main-chat-service');
 
 const {
+    clientGetAndJoinRoom,
+    getCompanyOnlineDepartments,
+    getCompanyOnlineUsers,
     initAllConnectedUsers,
     userInsertAndJoinRoom,
-    clientGetAndJoinRoom,
-    getCompanyOnlineUsers,
-    userGetAndJoinRoom,
 } = require('../services/user-service');
 
 module.exports = async (io, socket) => {
@@ -38,7 +38,8 @@ module.exports = async (io, socket) => {
     //         // console.log('sd.id', sd.id);
     //         // console.log('sd.handshake', sd.handshake);
     //         console.log('sd.rooms', sd.rooms);
-    //         // console.log('sd.data', sd.data);
+    //         console.log('sd.data', sd.data);
+    //         console.log('sd.request.session', sd.request.session);
     //     }
     // }
 
@@ -107,6 +108,14 @@ module.exports = async (io, socket) => {
     })
 
     /**
+     * List of available departments
+     * In transfer chat feature
+     */
+     socket.on('departments.online', async () => {
+        const companyOnlineDepartments = await getCompanyOnlineDepartments(io, socket)
+    })
+
+    /**
      * Client request to fetch all data
      */
     socket.on('allData', async () => {
@@ -138,6 +147,9 @@ module.exports = async (io, socket) => {
                 let companyOnlineUserRoom = `company:${user.company_name}:online_user_room`
                 const companyOnlineUsers = await getCompanyOnlineUsers(io, socket)
                 io.to(companyOnlineUserRoom).emit('users.offline', companyOnlineUsers)
+
+                // Get Latest Online Departments
+                const companyOnlineDepartments = await getCompanyOnlineDepartments(io, socket)
 
                 console.log('user is offline: ', user.id)
             } else {
