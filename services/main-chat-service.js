@@ -280,9 +280,6 @@ const getMessagesByChatId = async (id) => {
         // Mapping data for every chat id (room)
         for(let [idx, item] of chatListKey.entries()) {
             let bubbleExist = await redisClient.exists(item)
-            chatListWithBubble[idx] = predefinedChatKeys
-            chatListWithBubble[idx].chat_id = item.split(':').pop()
-            chatListWithBubble[idx].room = item
 
             if(bubbleExist) {
                 let bubbles = await redisClient.call('JSON.GET', item)
@@ -293,20 +290,23 @@ const getMessagesByChatId = async (id) => {
 
                 let currentRoomAgentData = await getMemberDataFromBubble(parsedBubbles)
 
+                chatListWithBubble[idx] = predefinedChatKeys
                 chatListWithBubble[idx] = {
                     ...chatListWithBubble[idx],
                     ...{
+                        channel_name: firstMessage.channel_name ? firstMessage.channel_name : null,
+                        chat_id: item.split(':').pop(),
+                        company_name: firstMessage.company_name,
+                        department_name: firstMessage.department_name,
                         formatted_date: latestMessage.formatted_date,
+                        id_channel: firstMessage.id_channel ? firstMessage.id_channel : null,
                         message: latestMessage.message,
+                        room: item,
+                        status: (firstMessage.status || firstMessage.status == 0) ? firstMessage.status : null,
+                        topic_name: firstMessage.topic_name,
                         user_email: firstMessage.from,
                         user_name: firstMessage.user_name,
                         user_phone: firstMessage.phone ? firstMessage.phone : null,
-                        company_name: firstMessage.company_name,
-                        department_name: firstMessage.department_name,
-                        topic_name: firstMessage.topic_name,
-                        id_channel: firstMessage.id_channel ? firstMessage.id_channel : null,
-                        channel_name: firstMessage.channel_name ? firstMessage.channel_name : null,
-                        status: (firstMessage.status || firstMessage.status == 0) ? firstMessage.status : null,
                     }
                 }
 
