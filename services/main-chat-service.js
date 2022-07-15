@@ -30,6 +30,7 @@ let predefinedChatKeys = {
     department_name: null,
     formatted_date: null,
     id_channel: null,
+    // is_sender: null, // only in bubble chat
     message: null,
     room: null, // item
     status: null,
@@ -50,7 +51,7 @@ let predefinedChatKeys = {
 const getPendingListByUser = async(socket) => {
     const user = socket.request.session.user
     let listPendingChatRoom = `company:${user.company_name}:dept:${user.department_name}:pending_chats`
-    let pendingList = await getMessagesByManyChatRoom(listPendingChatRoom)
+    let pendingList = await getMessagesByManyChatRoom(listPendingChatRoom, null, null, socket)
 
     return pendingList
 }
@@ -79,7 +80,7 @@ const getPendingListByRoomKey = async(roomKey) => {
 const getOngoingListByUser = async(socket) => {
     const user = socket.request.session.user
     let userRoomsKey = `user:${user.id}:rooms`
-    let userRooms = await getMessagesByManyChatRoom(userRoomsKey)
+    let userRooms = await getMessagesByManyChatRoom(userRoomsKey, null, null, socket)
 
     return userRooms
 }
@@ -93,7 +94,7 @@ const getResolveListByUser = async(socket) => {
         }
     }
     let listResolveChatRoom = `user:${user.id}:resolve_chats`
-    let resolveList = await getMessagesByManyChatRoom(listResolveChatRoom)
+    let resolveList = await getMessagesByManyChatRoom(listResolveChatRoom, null, null, socket)
 
     return resolveList
 }
@@ -131,10 +132,10 @@ const getPendingTransferListByUser = async(socket) => {
     // Merge list if both list are exist
     if(agentListRoomId.length > 0 && departmentListRoomId.length > 0) {
         let arrayRoomId = await redisClient.zunion(2, agentPTRoomKey, departmentPTRoomKey)
-        pendingTransferList = await getMessagesByManyChatRoom(null, arrayRoomId)
+        pendingTransferList = await getMessagesByManyChatRoom(null, arrayRoomId, null, socket)
     } else {
         let roomKey = agentListRoomId.length > 0 ? agentPTRoomKey : departmentPTRoomKey
-        pendingTransferList = await getMessagesByManyChatRoom(roomKey)
+        pendingTransferList = await getMessagesByManyChatRoom(roomKey, null, null, socket)
     }
 
     return pendingTransferList
@@ -206,9 +207,10 @@ const getClientResolveList = async (socket) => {
  * from given chat id
  *
  * @param {String} id
+ * @param {*} socketOrRequest socket|API request (express request)
  * @returns
  */
-const getMessagesByChatId = async (id) => {
+const getMessagesByChatId = async (id, socketOrRequest=null) => {
     const chatId = id
     let roomId = null
     let chatResult = predefinedChatKeys
@@ -225,7 +227,8 @@ const getMessagesByChatId = async (id) => {
     }
 
     roomId = existingKeys[0] // return the first keys
-    let arrayMessageDetail = await getMessagesByManyChatRoom(null, [roomId], 'WITHBUBBLE')
+    let arrayMessageDetail = await getMessagesByManyChatRoom(null, [roomId], 'WITHBUBBLE', socketOrRequest)
+
     if(arrayMessageDetail.length > 0)
         chatResult = arrayMessageDetail[0]
 
@@ -266,10 +269,33 @@ const getMessagesByChatId = async (id) => {
  * @param {String} withBubble null|'WITHBUBBLE'
  * @returns Array
  */
- const getMessagesByManyChatRoom = async(roomCategory, arrayRoomId=null, withBubble=null) => {
+ const getMessagesByManyChatRoom = async(
+    roomCategory,
+    arrayRoomId=null,
+    withBubble=null,
+    withSocketOrRequest=null
+    ) => {
     let chatListKey = []
     let chatListWithBubble = []
+    let socket = null
+    let currentLoggedInUser = null
 
+    // Set current logged in user data
+    // Validate by socket session or express session
+    if(withSocketOrRequest) {
+        let userDataBySocket = withSocketOrRequest && withSocketOrRequest.request  ? withSocketOrRequest.request.session : null
+        let userDataByRequest = withSocketOrRequest && withSocketOrRequest.session ? withSocketOrRequest.session : null
+
+        currentLoggedInUser = userDataBySocket ? userDataBySocket : userDataByRequest
+        if(currentLoggedInUser.user == undefined || currentLoggedInUser.user == undefined) {
+            console.error(errorResponseFormat(null, 'User session is empty. Please relogin to continue.'))
+            return errorResponseFormat(null, 'User session is empty. Please relogin to continue.')
+        } else {
+            currentLoggedInUser = currentLoggedInUser.user
+        }
+    }
+
+    // Set chat list value
     if(roomCategory) {
         chatListKey = await redisClient.zrange(roomCategory, 0, -1);
     } else {
@@ -312,7 +338,18 @@ const getMessagesByChatId = async (id) => {
                 if(withBubble && withBubble == 'WITHBUBBLE') {
                     if(parsedBubbles.length > 0) {
                         for(let [index, bubbleItem] of parsedBubbles.entries()) {
-                            bubbleItem.avatar = currentRoomAgentData[bubbleItem.from] ? currentRoomAgentData[bubbleItem.from].avatar : null // agent avatar
+                            bubbleItem.is_sender = false
+
+                            if( currentRoomAgentData[bubbleItem.from]) {
+                                bubbleItem.avatar = currentRoomAgentData[bubbleItem.from].avatar // agent avatar
+                                if(withSocketOrRequest) {
+                                    bubbleItem.is_sender = currentLoggedInUser.id == currentRoomAgentData[bubbleItem.from].agent_id ? true : false
+
+                                    console.log('currentLoggedInUser.id', currentLoggedInUser.id)
+                                    console.log('currentRoomAgentData[bubbleItem.from].agent_id', currentRoomAgentData[bubbleItem.from].agent_id)
+                                    console.log('')
+                                }
+                            } // end if agent data exists
                         }
                     }
                     chatListWithBubble[idx].chat_reply = parsedBubbles
