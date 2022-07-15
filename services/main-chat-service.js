@@ -344,7 +344,6 @@ const getMessagesByChatId = async (id) => {
  * @returns
  */
  const isUserInRoom = async(io, socket, roomId) => {
-    console.log('kepanggil')
     let failedCheckUser = errorResponseFormat(null, 'Failed to process the rquest. User is not in chat room.')
     let socketsInRoom = await io.in(roomId).fetchSockets();
     if(!socketsInRoom) { // Room is empty
