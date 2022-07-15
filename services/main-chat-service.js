@@ -175,7 +175,7 @@ const getClientOngoingChat = async (socket) => {
     let chatId = clientRoomId ? clientRoomId.split(':').pop() : null
     let getMessages = await getMessagesByChatId(chatId)
     if(!getMessages.room) {
-        console.error(errorResponseFormat(null, 'Room not found.'))
+        console.error(errorResponseFormat(null, `Room ${chatId} not found.`))
         return []
     }
 
@@ -280,8 +280,7 @@ const getMessagesByChatId = async (id) => {
         // Mapping data for every chat id (room)
         for(let [idx, item] of chatListKey.entries()) {
             let bubbleExist = await redisClient.exists(item)
-
-            if(bubbleExist) {
+            if(bubbleExist != 0) {
                 let bubbles = await redisClient.call('JSON.GET', item)
                 let parsedBubbles = JSON.parse(bubbles)
                 let firstMessage = parsedBubbles[0]
@@ -330,6 +329,9 @@ const getMessagesByChatId = async (id) => {
             }
 
         } // end for
+
+        // Remove null values
+        chatListWithBubble = chatListWithBubble.filter(function(_, index) { return chatListWithBubble.hasOwnProperty(index); });
     }
 
     return chatListWithBubble
@@ -375,7 +377,7 @@ const sendMessage = async(io, socket, data) => {
 
     let getMessages = await getMessagesByChatId(chatId)
     if(!getMessages.room) {
-        let requestResult = errorResponseFormat(data, 'Failed to send message. Room not found.')
+        let requestResult = errorResponseFormat(data, `Failed to send message. Room ${chatId} not found.`)
         console.error(requestResult)
         socket.emit('message', requestResult)
 
@@ -458,7 +460,7 @@ const endChat = async(io, socket, data) => {
         console.error('Send Message Error: empty keys. Room not found')
         return {
             data: data,
-            message: 'Failed to send message. Room not found.'
+            message: `Failed to send message. Room ${chatId} not found.`
         }
     }
 
@@ -588,7 +590,7 @@ const transferChat = async (io, socket, data) => {
     if(!getMessages.room) {
         console.error('Transfer chat error: empty keys. Room not found')
 
-        requestResult = errorResponseFormat(data, 'Failed to transfer chat. Room not found.')
+        requestResult = errorResponseFormat(data, `Failed to transfer chat. Room ${chatId} not found.`)
         socket.emit('chat.transferresult', requestResult)
         return requestResult
     }
