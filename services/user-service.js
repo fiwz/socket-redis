@@ -15,7 +15,11 @@ const {
     getPendingTransferListByUser,
 } = require('../services/main-chat-service');
 
-const { getCurrentDateTime, slugify } = require('../utils/helpers');
+const {
+    getCurrentDateTime,
+    slugify,
+    getValueByArrayColumn
+} = require('../utils/helpers');
 
 /**
  * User Session
@@ -46,8 +50,11 @@ const createUserAuth = async (data) => {
     // Insert user to company department
     let companySlug = slugify(data.company_name);
     let departmentSlug = slugify(data.department_name);
-    let usersInDepartmentKey = `company:${companySlug}:dept:${departmentSlug}:users`;
-    await redisClient.sadd(usersInDepartmentKey, data.agent_id);
+
+    if(departmentSlug) {
+        let usersInDepartmentKey = `company:${companySlug}:dept:${departmentSlug}:users`;
+        await redisClient.sadd(usersInDepartmentKey, data.agent_id);
+    }
 
     // Add to online user list
     let companyOnlineUsersKey = `company:${companySlug}:online_users`;
@@ -83,14 +90,16 @@ const initAllConnectedUsers = async (io, socket, withReturnData = false) => {
             );
 
             // Add to company department's users in redis
-            let usersInDepartmentKey = `company:${user.company_name}:dept:${user.department_name}:users`
-            await redisClient.sadd(usersInDepartmentKey, user.id)
-
+            if(user.department_name) {
+                let usersInDepartmentKey = `company:${user.company_name}:dept:${user.department_name}:users`
+                await redisClient.sadd(usersInDepartmentKey, user.id)
+            }
             userGetAndJoinRoom(socket);
 
             if(withReturnData) {
                 const myChatList = await getAllChatList(socket);
                 const companyOnlineUsers = await getCompanyOnlineUsers(io, socket);
+                const companyOnlineDepartments = await getCompanyOnlineDepartments(io, socket)
 
                 let result = myChatList;
                 result.online_users = companyOnlineUsers;
@@ -105,7 +114,8 @@ const initAllConnectedUsers = async (io, socket, withReturnData = false) => {
                 socket.emit('chat.pendingtransfer', myChatList.pendingtransfer);
 
                 // Emit Online Users
-                io.to(companyOnlineUserRoom).emit('users.online', companyOnlineUsers); // to all user in a company
+                // io.to(companyOnlineUserRoom).emit('users.online', companyOnlineUsers); // to all user in a company
+                // io.to(companyOnlineUserRoom).emit('departments.online', companyOnlineDepartments); // to all user in a company
             }
         } else {
             // If client
@@ -119,6 +129,17 @@ const initAllConnectedUsers = async (io, socket, withReturnData = false) => {
     }
 };
 
+/**
+ * Get online users in a company
+ * based on logged in user
+ *
+ * - Can be fetch by socket
+ * - Can be fetch by request
+ * @param {*} io
+ * @param {*} socket
+ * @param {*} request
+ * @returns
+ */
 const getCompanyOnlineUsers = async (io, socket = null, request = null) => {
     let onlineUsers = [];
     let sourceAuthData = socket ? socket.request.session : request.session;
@@ -159,6 +180,35 @@ const getCompanyOnlineUsers = async (io, socket = null, request = null) => {
 };
 
 /**
+ * Get online departments in a company
+ * - based on logged in users in a company
+ * - based on current logged in user
+ *
+ * @param {*} io
+ * @param {*} socket
+ * @param {*} request
+ * @returns
+ */
+const getCompanyOnlineDepartments = async (io, socket = null, request = null) => {
+    let onlineDepartments = [];
+    let sourceAuthData = socket ? socket.request.session : request.session;
+
+    if(sourceAuthData.user !== undefined) {
+        const user = sourceAuthData.user;
+        let companyOnlineUserRoom = `company:${user.company_name}:online_user_room`;
+
+        // Get Department By Online Users via Socket
+        let onlineUsers = await getCompanyOnlineUsers(io, socket, request)
+        onlineDepartments = await getValueByArrayColumn(onlineUsers, 'department_name', 'DISTINCT')
+
+        /** Emit to FE */
+        io.to(companyOnlineUserRoom).emit('departments.online', onlineDepartments); // to all user in a company
+    }
+
+    return onlineDepartments;
+}
+
+/**
  * Client Get And Join Room
  *
  * Get client room and join client to existing room
@@ -171,11 +221,6 @@ const clientGetAndJoinRoom = async (socket) => {
 
     // Save client data to socket data
     socket.data.user = clientSessionData;
-
-    // insert room yg diklik ke list room milik agent
-    // add user to room:QBFCL1656301812:members (optional)
-    // code...
-
     return `Client has joined: ${clientRoomId}`;
 };
 
@@ -202,12 +247,16 @@ const userGetAndJoinRoom = async (socket) => {
 
         // Join Department Room
         // Agent will get notified if there is new pending chat
-        let pendingDepartmentRoom = `company:${user.company_name}:dept:${user.department_name}:pending_chat_room`;
-        socket.join(pendingDepartmentRoom);
+        if(user.department_name) {
+            let pendingDepartmentRoom = `company:${user.company_name}:dept:${user.department_name}:pending_chat_room`;
+            socket.join(pendingDepartmentRoom);
+        }
 
-        // Join Pending Transfer to Department Room
-        let pendingTransferDepartmentRoom = `company:${user.company_name}:dept:${user.department_name}:pending_transfer_chat_room`;
-        socket.join(pendingTransferDepartmentRoom);
+        if(user.department_name) {
+            // Join Pending Transfer to Department Room
+            let pendingTransferDepartmentRoom = `company:${user.company_name}:dept:${user.department_name}:pending_transfer_chat_room`;
+            socket.join(pendingTransferDepartmentRoom);
+        }
 
         // Join Pending Transfer to Agent's Room
         let pendingTransferAgentRoom = `user:${user.id}:pending_transfer_chat_room`;
@@ -301,8 +350,12 @@ const userInsertAndJoinRoom = async (io, socket, id) => {
     }
 
     // Check if room is in "pending transfer list by department"
-    let departmentPTRoomKey = `company:${user.company_name}:dept:${user.department_name}:pending_transfer_chats`
-    let departmentPTSocketRoom = `company:${user.company_name}:dept:${user.department_name}:pending_transfer_chat_room`
+    let departmentPTRoomKey = null
+    let departmentPTSocketRoom = null
+    if(user.department_name) {
+        departmentPTRoomKey = `company:${user.company_name}:dept:${user.department_name}:pending_transfer_chats`
+        departmentPTSocketRoom = `company:${user.company_name}:dept:${user.department_name}:pending_transfer_chat_room`
+    }
 
     let isExistsInDepartmentPT = await redisClient.zrank(departmentPTRoomKey, roomId)
     if(isExistsInDepartmentPT || isExistsInDepartmentPT == 0) {
@@ -362,6 +415,7 @@ const userInsertAndJoinRoom = async (io, socket, id) => {
 module.exports = {
     clientGetAndJoinRoom,
     createUserAuth,
+    getCompanyOnlineDepartments,
     getCompanyOnlineUsers,
     initAllConnectedUsers,
     userGetAndJoinRoom,

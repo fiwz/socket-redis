@@ -19,16 +19,18 @@ const {
  */
 let predefinedChatKeys = {
     // chat_reply: [],
-    avatar: null, // agent avatar
     agent_email: null,
     agent_id: null,
     agent_name: null,
     agent_uuid: null,
+    avatar: null, // agent avatar
     channel_name: null,
     chat_id: null, // item.split(':').pop()
+    company_name: null,
     department_name: null,
     formatted_date: null,
     id_channel: null,
+    // is_sender: null, // only in bubble chat
     message: null,
     room: null, // item
     status: null,
@@ -49,7 +51,7 @@ let predefinedChatKeys = {
 const getPendingListByUser = async(socket) => {
     const user = socket.request.session.user
     let listPendingChatRoom = `company:${user.company_name}:dept:${user.department_name}:pending_chats`
-    let pendingList = await getMessagesByManyChatRoom(listPendingChatRoom)
+    let pendingList = await getMessagesByManyChatRoom(listPendingChatRoom, null, null, socket)
 
     return pendingList
 }
@@ -78,7 +80,7 @@ const getPendingListByRoomKey = async(roomKey) => {
 const getOngoingListByUser = async(socket) => {
     const user = socket.request.session.user
     let userRoomsKey = `user:${user.id}:rooms`
-    let userRooms = await getMessagesByManyChatRoom(userRoomsKey)
+    let userRooms = await getMessagesByManyChatRoom(userRoomsKey, null, null, socket)
 
     return userRooms
 }
@@ -92,7 +94,7 @@ const getResolveListByUser = async(socket) => {
         }
     }
     let listResolveChatRoom = `user:${user.id}:resolve_chats`
-    let resolveList = await getMessagesByManyChatRoom(listResolveChatRoom)
+    let resolveList = await getMessagesByManyChatRoom(listResolveChatRoom, null, null, socket)
 
     return resolveList
 }
@@ -130,10 +132,10 @@ const getPendingTransferListByUser = async(socket) => {
     // Merge list if both list are exist
     if(agentListRoomId.length > 0 && departmentListRoomId.length > 0) {
         let arrayRoomId = await redisClient.zunion(2, agentPTRoomKey, departmentPTRoomKey)
-        pendingTransferList = await getMessagesByManyChatRoom(null, arrayRoomId)
+        pendingTransferList = await getMessagesByManyChatRoom(null, arrayRoomId, null, socket)
     } else {
         let roomKey = agentListRoomId.length > 0 ? agentPTRoomKey : departmentPTRoomKey
-        pendingTransferList = await getMessagesByManyChatRoom(roomKey)
+        pendingTransferList = await getMessagesByManyChatRoom(roomKey, null, null, socket)
     }
 
     return pendingTransferList
@@ -174,7 +176,7 @@ const getClientOngoingChat = async (socket) => {
     let chatId = clientRoomId ? clientRoomId.split(':').pop() : null
     let getMessages = await getMessagesByChatId(chatId)
     if(!getMessages.room) {
-        console.error(errorResponseFormat(null, 'Room not found.'))
+        console.error(errorResponseFormat(null, `Room ${chatId} not found.`))
         return []
     }
 
@@ -205,9 +207,10 @@ const getClientResolveList = async (socket) => {
  * from given chat id
  *
  * @param {String} id
+ * @param {*} socketOrRequest socket|API request (express request)
  * @returns
  */
-const getMessagesByChatId = async (id) => {
+const getMessagesByChatId = async (id, socketOrRequest=null) => {
     const chatId = id
     let roomId = null
     let chatResult = predefinedChatKeys
@@ -224,7 +227,8 @@ const getMessagesByChatId = async (id) => {
     }
 
     roomId = existingKeys[0] // return the first keys
-    let arrayMessageDetail = await getMessagesByManyChatRoom(null, [roomId], 'WITHBUBBLE')
+    let arrayMessageDetail = await getMessagesByManyChatRoom(null, [roomId], 'WITHBUBBLE', socketOrRequest)
+
     if(arrayMessageDetail.length > 0)
         chatResult = arrayMessageDetail[0]
 
@@ -265,10 +269,33 @@ const getMessagesByChatId = async (id) => {
  * @param {String} withBubble null|'WITHBUBBLE'
  * @returns Array
  */
- const getMessagesByManyChatRoom = async(roomCategory, arrayRoomId=null, withBubble=null) => {
+ const getMessagesByManyChatRoom = async(
+    roomCategory,
+    arrayRoomId=null,
+    withBubble=null,
+    withSocketOrRequest=null
+    ) => {
     let chatListKey = []
     let chatListWithBubble = []
+    let socket = null
+    let currentLoggedInUser = null
 
+    // Set current logged in user data
+    // Validate by socket session or express session
+    if(withSocketOrRequest) {
+        let userDataBySocket = withSocketOrRequest && withSocketOrRequest.request  ? withSocketOrRequest.request.session : null
+        let userDataByRequest = withSocketOrRequest && withSocketOrRequest.session ? withSocketOrRequest.session : null
+
+        currentLoggedInUser = userDataBySocket ? userDataBySocket : userDataByRequest
+        if(currentLoggedInUser.user == undefined || currentLoggedInUser.user == undefined) {
+            console.error(errorResponseFormat(null, 'User session is empty. Please relogin to continue.'))
+            return errorResponseFormat(null, 'User session is empty. Please relogin to continue.')
+        } else {
+            currentLoggedInUser = currentLoggedInUser.user
+        }
+    }
+
+    // Set chat list value
     if(roomCategory) {
         chatListKey = await redisClient.zrange(roomCategory, 0, -1);
     } else {
@@ -279,11 +306,7 @@ const getMessagesByChatId = async (id) => {
         // Mapping data for every chat id (room)
         for(let [idx, item] of chatListKey.entries()) {
             let bubbleExist = await redisClient.exists(item)
-            chatListWithBubble[idx] = predefinedChatKeys
-            chatListWithBubble[idx].chat_id = item.split(':').pop()
-            chatListWithBubble[idx].room = item
-
-            if(bubbleExist) {
+            if(bubbleExist != 0) {
                 let bubbles = await redisClient.call('JSON.GET', item)
                 let parsedBubbles = JSON.parse(bubbles)
                 let firstMessage = parsedBubbles[0]
@@ -292,26 +315,41 @@ const getMessagesByChatId = async (id) => {
 
                 let currentRoomAgentData = await getMemberDataFromBubble(parsedBubbles)
 
+                chatListWithBubble[idx] = predefinedChatKeys
                 chatListWithBubble[idx] = {
                     ...chatListWithBubble[idx],
                     ...{
+                        channel_name: firstMessage.channel_name ? firstMessage.channel_name : null,
+                        chat_id: item.split(':').pop(),
+                        company_name: firstMessage.company_name,
+                        department_name: firstMessage.department_name,
                         formatted_date: latestMessage.formatted_date,
+                        id_channel: firstMessage.id_channel ? firstMessage.id_channel : null,
                         message: latestMessage.message,
+                        room: item,
+                        status: (firstMessage.status || firstMessage.status == 0) ? firstMessage.status : null,
+                        topic_name: firstMessage.topic_name,
                         user_email: firstMessage.from,
                         user_name: firstMessage.user_name,
                         user_phone: firstMessage.phone ? firstMessage.phone : null,
-                        department_name: firstMessage.department_name,
-                        topic_name: firstMessage.topic_name,
-                        id_channel: firstMessage.id_channel ? firstMessage.id_channel : null,
-                        channel_name: firstMessage.channel_name ? firstMessage.channel_name : null,
-                        status: (firstMessage.status || firstMessage.status == 0) ? firstMessage.status : null,
                     }
                 }
 
                 if(withBubble && withBubble == 'WITHBUBBLE') {
                     if(parsedBubbles.length > 0) {
                         for(let [index, bubbleItem] of parsedBubbles.entries()) {
-                            bubbleItem.avatar = currentRoomAgentData[bubbleItem.from] ? currentRoomAgentData[bubbleItem.from].avatar : null // agent avatar
+                            bubbleItem.is_sender = false
+
+                            if( currentRoomAgentData[bubbleItem.from]) {
+                                bubbleItem.avatar = currentRoomAgentData[bubbleItem.from].avatar // agent avatar
+                                if(withSocketOrRequest) {
+                                    bubbleItem.is_sender = currentLoggedInUser.id == currentRoomAgentData[bubbleItem.from].agent_id ? true : false
+
+                                    console.log('currentLoggedInUser.id', currentLoggedInUser.id)
+                                    console.log('currentRoomAgentData[bubbleItem.from].agent_id', currentRoomAgentData[bubbleItem.from].agent_id)
+                                    console.log('')
+                                }
+                            } // end if agent data exists
                         }
                     }
                     chatListWithBubble[idx].chat_reply = parsedBubbles
@@ -328,6 +366,9 @@ const getMessagesByChatId = async (id) => {
             }
 
         } // end for
+
+        // Remove null values
+        chatListWithBubble = chatListWithBubble.filter(function(_, index) { return chatListWithBubble.hasOwnProperty(index); });
     }
 
     return chatListWithBubble
@@ -342,7 +383,6 @@ const getMessagesByChatId = async (id) => {
  * @returns
  */
  const isUserInRoom = async(io, socket, roomId) => {
-    console.log('kepanggil')
     let failedCheckUser = errorResponseFormat(null, 'Failed to process the rquest. User is not in chat room.')
     let socketsInRoom = await io.in(roomId).fetchSockets();
     if(!socketsInRoom) { // Room is empty
@@ -374,7 +414,7 @@ const sendMessage = async(io, socket, data) => {
 
     let getMessages = await getMessagesByChatId(chatId)
     if(!getMessages.room) {
-        let requestResult = errorResponseFormat(data, 'Failed to send message. Room not found.')
+        let requestResult = errorResponseFormat(data, `Failed to send message. Room ${chatId} not found.`)
         console.error(requestResult)
         socket.emit('message', requestResult)
 
@@ -406,8 +446,45 @@ const sendMessage = async(io, socket, data) => {
 
     chatContent.success = true
 
+    /** Emit to FE */
     io.to(roomId).emit('show.room', chatContent)
     io.to(roomId).emit('message', chatContent)
+
+    /**
+     * Emit to:
+     * - department pending list
+     * - department pending transfer list
+     * - agent's pending transfer list
+     */
+    if(getMessages.status == 0 || getMessages.status == 2) {
+        let selectedRoom = null
+        let emitKey = null
+        let pendingDepartmentRoom = `company:${getMessages.company_name}:dept:${getMessages.department_name}:pending_chat_room`
+        let pendingTransferDepartmentRoom = `company:${getMessages.company_name}:dept:${getMessages.department_name}:pending_transfer_chat_room`;
+
+        selectedRoom = pendingDepartmentRoom
+        emitKey = 'chat.pending'
+        if(getMessages.status == 2) {
+            selectedRoom = pendingTransferDepartmentRoom
+            emitKey = 'chat.pendingtransfer'
+        }
+
+        // Add condition if chat is pending transfer to agent
+        // code...
+
+        // Add condition if chat is pending transfer to department
+        // code...
+
+        let socketList = await io.in(selectedRoom).fetchSockets()
+        if(socketList) {
+            for(let [index, sd] of socketList.entries()) {
+                if(sd.data.user) {
+                    let listChat = (getMessages.status == 0) ? await getPendingListByUser(sd) : await getPendingTransferListByUser(sd)
+                    io.to(sd.id).emit(emitKey, listChat)
+                }
+            }
+        }
+    }
 }
 
 const endChat = async(io, socket, data) => {
@@ -420,7 +497,7 @@ const endChat = async(io, socket, data) => {
         console.error('Send Message Error: empty keys. Room not found')
         return {
             data: data,
-            message: 'Failed to send message. Room not found.'
+            message: `Failed to send message. Room ${chatId} not found.`
         }
     }
 
@@ -550,7 +627,7 @@ const transferChat = async (io, socket, data) => {
     if(!getMessages.room) {
         console.error('Transfer chat error: empty keys. Room not found')
 
-        requestResult = errorResponseFormat(data, 'Failed to transfer chat. Room not found.')
+        requestResult = errorResponseFormat(data, `Failed to transfer chat. Room ${chatId} not found.`)
         socket.emit('chat.transferresult', requestResult)
         return requestResult
     }
@@ -571,6 +648,11 @@ const transferChat = async (io, socket, data) => {
     let departmentPTSocketRoom = `company:${initiator.company_name}:dept:${data.toDepartment}:pending_transfer_chat_room`
     // TRANSFER TO AGENT OR DEPARTMENT
     mySockets = data.toAgent ? (await io.in(agentPTSocketRoom).fetchSockets()) : (await io.in(departmentPTSocketRoom).fetchSockets())
+    if(!mySockets || mySockets.length <= 0) {
+        requestResult = errorResponseFormat(null, 'Failed to transfer chat. Agent or Department is not online.')
+        socket.emit('chat.transferresult', requestResult)
+    }
+
     for (let [index, sd] of mySockets.entries()) {
         assignedAgentSocket[index] = sd
     }
@@ -609,9 +691,17 @@ const transferChat = async (io, socket, data) => {
     // }
 
     // UPDATE STATUS
+    // UPDATE DEPARTMENT NAME
     // Set status to pending transfer
     let updateFirstMessageData = getMessages.chat_reply[0]
     updateFirstMessageData.status = 2
+
+    if(data.toAgent) {
+        if(updateFirstMessageData.department_name != assignedAgentSocket[0].data.user.department_name)
+            updateFirstMessageData.department_name = assignedAgentSocket[0].data.user.department_name
+    } else {
+        updateFirstMessageData.department_name = data.toDepartment
+    }
     await redisClient.call('JSON.SET', roomId, '[0]', JSON.stringify(updateFirstMessageData))
 
     /** Emit to FE */

@@ -35,16 +35,25 @@ const slugify = function(str) {
     return str;
 }
 
+/**
+ * Array Column
+ *
+ * @param {*} array
+ * @param {String, Array} keyToSearch (String or Array)
+ * @param {*} distinct
+ * @returns
+ */
 const getValueByArrayColumn = async(array, keyToSearch, distinct=null) => {
-    // get chat members
     let arrayResult = []
-    for(let i in array) {
-        if(array[i][keyToSearch])
-            arrayResult.push(array[i][keyToSearch])
-    }
+    if(Array.isArray(array) && array.length > 0) {
+        for(let i in array) {
+            if(array[i][keyToSearch])
+                arrayResult.push(array[i][keyToSearch])
+        }
 
-    if(distinct == 'DISTINCT')
-        arrayResult = arrayResult.filter((value, index, array) => array.indexOf(value) === index) // unique
+        if(distinct == 'DISTINCT')
+            arrayResult = arrayResult.filter((value, index, array) => array.indexOf(value) === index) // unique
+    }
 
     return arrayResult
 }

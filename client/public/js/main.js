@@ -63,7 +63,8 @@ $(() => {
 
     let dataAuth3 = {
       agent_id: '76',
-      avatar: 'http://localhost:8000/storage/assets/images/uploads/gravatar/agent-finance-2-76.png',
+      avatar:
+        'http://localhost:8000/storage/assets/images/uploads/gravatar/agent-finance-2-76.png',
       company_name: 'Gina Company',
       department_name: 'Finance',
       email_agent: 'agentfinance2@qwords.co.id',
@@ -76,7 +77,8 @@ $(() => {
       phone_agent: 'null',
       roles_id: '4',
       status: 'online',
-      token: 'eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9.eyJhdWQiOiIxIiwianRpIjoiNTZkNmY5OGVlMWY2ZDVmMGIxNzE5NjNjNDJjMDZiYThiNDgyYzJjM2I2NmU3YWQ4Y2YzMTQyNDQ0NTcyNDk4MjI0MGYxMzAyNmNjNGU0NjAiLCJpYXQiOjE2NTc2MDkyODAuNzU1MzE2LCJuYmYiOjE2NTc2MDkyODAuNzU1MzMzLCJleHAiOjE2ODkxNDUyODAuNzM1OTY5LCJzdWIiOiI3NiIsInNjb3BlcyI6W119.I6ZXpdfI-4wMNc0I_TaQTVeE5d0GOjkSnHnU4uPfP7_LmdwOGdyYxQ-xeAL5vncpf8PtcYeII6uZEAKX80AkZUmDZkeeoWKiNIZWCf1I9XPOBNb5FbJ6M9qqkc_XIz4wSYcedivEH9zglHaUV9RJZwwiGf46YO4F6YaGxwh2jZlyQHsj_PD5bmmh0tcaPyGOkiNEDNJ2hwj-dyh-U2y6Z5JTn8XQsjpeUVhiA0CGgmd5jUpg0To-oWyUSY9nU-FSQ0AMhVaie3Wyci5eqCkVMaOh3XFtig0gTcDI_4zRMIy8r7q_H940Ih-ndcjXQAFot8-0Aq5pyM1vYi_GfpV7T9Rb7WwW2YPLzDQqOOr9pL66nePq210Rzcs7-DKZpyQ5RlO02S1jjuNsN8lDVBj5rOjKtrPxic20Mh4HnvC0D_yc46N6k8E86VnsPdSxAMUljRyOYUGy9-ANPIh92hT4XLfeZEoQEYlrGrupa_SW79RY49n9IHXQeMHv2-5pOtFNWyKY_tPHXZbPYhqhntH38o6xFlffxjcl1gXzkLPyjig2v2trJqp9CC9niYXuDpeKBKaukWPUxsLRwFkEkpVzsLmMyqeK7EMt4D2CEnxeux2pk1PqZ9ljUhya2lDZNGEb0Eum4YGKhLAK4yUcEbNJZpl74cgxSFK9uJp5mrfYn6s',
+      token:
+        'eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9.eyJhdWQiOiIxIiwianRpIjoiNTZkNmY5OGVlMWY2ZDVmMGIxNzE5NjNjNDJjMDZiYThiNDgyYzJjM2I2NmU3YWQ4Y2YzMTQyNDQ0NTcyNDk4MjI0MGYxMzAyNmNjNGU0NjAiLCJpYXQiOjE2NTc2MDkyODAuNzU1MzE2LCJuYmYiOjE2NTc2MDkyODAuNzU1MzMzLCJleHAiOjE2ODkxNDUyODAuNzM1OTY5LCJzdWIiOiI3NiIsInNjb3BlcyI6W119.I6ZXpdfI-4wMNc0I_TaQTVeE5d0GOjkSnHnU4uPfP7_LmdwOGdyYxQ-xeAL5vncpf8PtcYeII6uZEAKX80AkZUmDZkeeoWKiNIZWCf1I9XPOBNb5FbJ6M9qqkc_XIz4wSYcedivEH9zglHaUV9RJZwwiGf46YO4F6YaGxwh2jZlyQHsj_PD5bmmh0tcaPyGOkiNEDNJ2hwj-dyh-U2y6Z5JTn8XQsjpeUVhiA0CGgmd5jUpg0To-oWyUSY9nU-FSQ0AMhVaie3Wyci5eqCkVMaOh3XFtig0gTcDI_4zRMIy8r7q_H940Ih-ndcjXQAFot8-0Aq5pyM1vYi_GfpV7T9Rb7WwW2YPLzDQqOOr9pL66nePq210Rzcs7-DKZpyQ5RlO02S1jjuNsN8lDVBj5rOjKtrPxic20Mh4HnvC0D_yc46N6k8E86VnsPdSxAMUljRyOYUGy9-ANPIh92hT4XLfeZEoQEYlrGrupa_SW79RY49n9IHXQeMHv2-5pOtFNWyKY_tPHXZbPYhqhntH38o6xFlffxjcl1gXzkLPyjig2v2trJqp9CC9niYXuDpeKBKaukWPUxsLRwFkEkpVzsLmMyqeK7EMt4D2CEnxeux2pk1PqZ9ljUhya2lDZNGEb0Eum4YGKhLAK4yUcEbNJZpl74cgxSFK9uJp5mrfYn6s',
       type_user: 'agent',
       uuid: '3b1d27cd-6eab-11ec-a9f4-e0d55e1b6010',
     };
@@ -123,18 +125,18 @@ $(() => {
         showLoginInfo();
 
         setTimeout(() => {
-            socket.connect();
-            socket.emit('reload');
+          socket.connect();
+          socket.emit('reload');
 
-            // emit after success
-            socket.emit('chat.new', allData);
+          // emit after success
+          socket.emit('chat.new', allData);
 
-            // remove left side list
-            $('#pending').parent().remove();
+          // remove left side list
+          $('#pending').parent().remove();
 
-            $('#client-resolve').removeClass('d-none');
-            $('#client-resolve').addClass('d-block');
-        }, 3000)
+          $('#client-resolve').removeClass('d-none');
+          $('#client-resolve').addClass('d-block');
+        }, 3000);
 
         // refresh page to see changes
       })
@@ -203,29 +205,32 @@ $(() => {
    * Only for agent(user)
    * Ambil chat dari pending list dan memindahkannya ke on going
    */
-  $(document).on('click', '#my-chats #pending ul li, #my-chats #pendingtransfer ul li', function (e) {
-    let elementId = $(this).attr('id');
-    let chatId = elementId;
-    if (elementId.search(':') != -1) {
-      let roomArr = elementId.split(':');
-      chatId = roomArr.pop();
-    }
+  $(document).on(
+    'click',
+    '#my-chats #pending ul li, #my-chats #pendingtransfer ul li',
+    function (e) {
+      let elementId = $(this).attr('id');
+      let chatId = elementId;
+      if (elementId.search(':') != -1) {
+        let roomArr = elementId.split(':');
+        chatId = roomArr.pop();
+      }
 
-    axios
-      .get(`${BASE_URL}/chat-details/${chatId}`, {
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        withCredentials: true,
-        // other configuration there
-      })
-      .then(function (response) {
-        let message = response.data.data;
+      axios
+        .get(`${BASE_URL}/chat-details/${chatId}`, {
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          withCredentials: true,
+          // other configuration there
+        })
+        .then(function (response) {
+          let message = response.data.data;
 
-        $('#fetch-message').html('');
-        if (message.chat_reply) {
-          message.chat_reply.forEach((chat, idx) => {
-            $('#fetch-message').append(`
+          $('#fetch-message').html('');
+          if (message.chat_reply) {
+            message.chat_reply.forEach((chat, idx) => {
+              $('#fetch-message').append(`
                     <div style='margin-bottom: 8px;'>
                         <p style='margin: 0px;'>${
                           chat.agent_name ? chat.agent_name : chat.from
@@ -234,23 +239,24 @@ $(() => {
                         <small>${chat.formatted_date}</small>
                     </div
                 `);
-          });
-        }
+            });
+          }
 
-        // join room if chat is in pending chat tab
-        socket.emit('room.join', chatId);
+          // join room if chat is in pending chat tab
+          socket.emit('room.join', chatId);
 
-        // remove chat id from list
-        $(this).remove();
+          // remove chat id from list
+          $(this).remove();
 
-        // set input reply value
-        $('#chat-id').val(chatId);
-      })
-      .catch(function (error) {
-        alert('oops');
-        console.error(error);
-      });
-  });
+          // set input reply value
+          $('#chat-id').val(chatId);
+        })
+        .catch(function (error) {
+          alert('oops');
+          console.error(error);
+        });
+    }
+  );
 
   /**
    * On Click in List On Going
@@ -263,26 +269,27 @@ $(() => {
     'click',
     '#my-chats #ongoing ul li, #my-chats #resolve ul li, #client-resolve ul li',
     function (e) {
-    let elementId = $(this).attr('id');
-    let chatId = elementId;
-    if (elementId.search(':') != -1) {
-      let roomArr = elementId.split(':');
-      chatId = roomArr.pop();
-    }
+      let elementId = $(this).attr('id');
+      let chatId = elementId;
+      if (elementId.search(':') != -1) {
+        let roomArr = elementId.split(':');
+        chatId = roomArr.pop();
+      }
 
-    axios.get(`${BASE_URL}/chat-details/${chatId}`, {
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        withCredentials: true,
-        // other configuration there
-      })
-      .then(function (response) {
-        let message = response.data.data;
-        console.log('API GET chat-details/chatId', message)
+      axios
+        .get(`${BASE_URL}/chat-details/${chatId}`, {
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          withCredentials: true,
+          // other configuration there
+        })
+        .then(function (response) {
+          let message = response.data.data;
+          console.log('API GET chat-details/chatId', message);
 
-        $('#fetch-message').html('');
-        if (message.chat_reply) {
+          $('#fetch-message').html('');
+          if (message.chat_reply) {
             message.chat_reply.forEach((chat, idx) => {
               $('#fetch-message').append(`
                 <div style='margin-bottom: 8px;'>
@@ -297,30 +304,31 @@ $(() => {
 
             // set input reply value
             $('#chat-id').val(message.chat_id);
-        }
-      })
-      .catch(function (error) {
-        alert('oops');
-        console.error(error);
-      });
+          }
+        })
+        .catch(function (error) {
+          alert('oops');
+          console.error(error);
+        });
 
-    axios.get(`${BASE_URL}/client-details/${chatId}`, {
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        withCredentials: true,
-        // other configuration there
-      })
-      .then(function (response) {
-        let clientData = response.data.data;
-        console.log('API GET client-details/chatId', clientData)
-      })
-      .catch(function (error) {
-        alert('oops');
-        console.error(error);
-      });
-
-  });
+      axios
+        .get(`${BASE_URL}/client-details/${chatId}`, {
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          withCredentials: true,
+          // other configuration there
+        })
+        .then(function (response) {
+          let clientData = response.data.data;
+          console.log('API GET client-details/chatId', clientData);
+        })
+        .catch(function (error) {
+          alert('oops');
+          console.error(error);
+        });
+    }
+  );
 
   /**
    * Send Message
@@ -357,43 +365,42 @@ $(() => {
   });
 
   $(document).on('click', '.btn-transfer-chat', function (e) {
-    console.log('transfer chat to agent')
+    console.log('transfer chat to agent');
     let data = {
-        chatId: $('.transfer-chat-id').val(),
-        toAgent: $('.transfer-to-agent').val(),
-    }
+      chatId: $('.transfer-chat-id').val(),
+      toAgent: $('.transfer-to-agent').val(),
+    };
 
-    socket.emit('chat.transfer', data)
-  })
+    socket.emit('chat.transfer', data);
+  });
 
   $(document).on('click', '.btn-transfer-chat-department', function (e) {
     let data = {
-        chatId: $('.transfer-department-chat-id').val(),
-        toDepartment: $('.transfer-department-slug').val(),
-    }
+      chatId: $('.transfer-department-chat-id').val(),
+      toDepartment: $('.transfer-department-slug').val(),
+    };
 
-    console.log('transfer chat to department', data)
+    console.log('transfer chat to department', data);
 
-    socket.emit('chat.transfer', data)
-  })
+    socket.emit('chat.transfer', data);
+  });
 
   // Get and request all data
   // $('#btn-example').click(function() {
   socket.emit('allData');
   // })
 
-
   /**
    * Socket listening event starts here
    */
 
-   /**
-    * Result of Agent Join Room
-    */
-    socket.on('room.joinresult', (message) => {
-        console.log('Listen room.joinresult: ', message)
-        alert('Listen room.joinresult: ', message)
-    })
+  /**
+   * Result of Agent Join Room
+   */
+  socket.on('room.joinresult', (message) => {
+    console.log('Listen room.joinresult: ', message);
+    alert('Listen room.joinresult: ', message);
+  });
 
   /**
    * Pending Chat
@@ -481,7 +488,6 @@ $(() => {
         );
       }
     }
-
   });
 
   /**
@@ -493,7 +499,7 @@ $(() => {
    */
   socket.on('chat.endresult', (message) => {
     console.log('Listen chat.endresult', message);
-    alert(`Listen chat.endresult. ${message.message}`)
+    alert(`Listen chat.endresult. ${message.message}`);
   });
 
   /**
@@ -503,7 +509,7 @@ $(() => {
    */
   socket.on('chat.transferresult', (message) => {
     console.log('Listen chat.transferresult', message);
-    alert(`Listen chat.transferresult. ${message.message}`)
+    alert(`Listen chat.transferresult. ${message.message}`);
   });
 
   /**
@@ -526,8 +532,8 @@ $(() => {
    * Recommend to use this for rendering bubble chat
    */
   socket.on('message', (message) => {
-    if(!message.success) {
-        return alert(message.message)
+    if (!message.success) {
+      return alert(message.message);
     }
 
     $('#fetch-message').append(`
@@ -599,7 +605,6 @@ $(() => {
    *
    * Listen if there is logged out user
    */
-  // code...
   socket.on('users.offline', (data) => {
     console.log(
       '(Listen to users.offline) A user has been offline, remaining users: ',
@@ -607,7 +612,21 @@ $(() => {
     );
   });
 
+  /**
+   * Online departments
+   *
+   * Listen if there is logged in/logged out user
+   */
+  socket.on('departments.online', (data) => {
+    console.log(
+      '(Listen to departments.online) Current online departments: ',
+      data
+    );
+  });
 
+  $('.btn-show-department').click(() => {
+    socket.emit('departments.online');
+  });
 
   /** Client Area */
   /**
@@ -659,6 +678,9 @@ $(() => {
         `<li class="list-group-item" id="${chat.chat_id}" >${chat.chat_id} <small>(${chat.formatted_date})</small></li>`
       );
     }
-  });
 
+    $('#pending').parent().remove();
+    $('#client-resolve').removeClass('d-none');
+    $('#client-resolve').addClass('d-block');
+  });
 });

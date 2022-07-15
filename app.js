@@ -163,6 +163,7 @@ app.post('/login', async function (req, res) {
     phone: savedData.phone_agent,
     company_name: savedData.company_name,
     department_name: savedData.department_name,
+    token: savedData.token,
   };
   req.session.user = user;
 
@@ -204,6 +205,7 @@ app.post('/login-client', async function (req, res) {
       from: user.email,
       user_name: user.name,
       message: user.message,
+      company_name: user.company_name,
       department_name: user.department_name,
       topic_name: user.topic_name,
 
@@ -283,8 +285,8 @@ app.post('/logout', auth, async (req, res) => {
 /** Fetch messages from a selected room */
 app.get('/chat-details/:id', auth, async (req, res) => {
   try {
-    const chatID = req.params.id;
-    const messages = await getMessagesByChatId(chatID);
+    const chatID = req.params.id
+    const messages = await getMessagesByChatId(chatID, req)
 
     if(!messages.room)
       return responseMessage(res, 404, 'Error fetch messages. Data is not found', false);
