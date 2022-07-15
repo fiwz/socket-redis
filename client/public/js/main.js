@@ -1,5 +1,5 @@
 $(() => {
-  const BASE_URL = 'http://localhost:4001'
+  const BASE_URL = 'http://localhost:4000'
   const socket = io(BASE_URL, {
     withCredentials: true,
     autoConnect: true,
@@ -673,6 +673,10 @@ $(() => {
         `<li class="list-group-item" id="${chat.chat_id}" >${chat.chat_id} <small>(${chat.formatted_date})</small></li>`
       );
     }
+
+    $('#pending').parent().remove();
+    $('#client-resolve').removeClass('d-none');
+    $('#client-resolve').addClass('d-block');
   });
 
 });

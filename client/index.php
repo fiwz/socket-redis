@@ -54,7 +54,7 @@
                         <div class="col-6">
                             <div id="pending">
                                 <div class="mb-3">Pending Chat</div>
-                                <ul class="list-group">
+                                <ul class="list-group" style="max-height: 200px; overflow-y: auto;">
                                     <li class="list-group-item">First item</li>
                                     <li class="list-group-item">Second item</li>
                                     <li class="list-group-item">Third item</li>
@@ -63,19 +63,19 @@
 
                             <div id="pendingtransfer">
                                 <div class="mt-4 mb-3">Pending Transfer</div>
-                                <ul class="list-group">
+                                <ul class="list-group" style="max-height: 200px; overflow-y: auto;">
                                 </ul>
                             </div>
 
                             <div id="ongoing">
                                 <div class="mt-4 mb-3">On Going Chat</div>
-                                <ul class="list-group">
+                                <ul class="list-group" style="max-height: 200px; overflow-y: auto;">
                                 </ul>
                             </div>
 
                             <div id="resolve">
                                 <div class="mt-4 mb-3">Resolve Chat</div>
-                                <ul class="list-group">
+                                <ul class="list-group" style="max-height: 200px; overflow-y: auto;">
                                 </ul>
                             </div>
 
@@ -84,7 +84,7 @@
                         <div class="col-6 d-none" id="client-resolve">
                             <div>
                                 <div class="my-3">Client Resolve Chat</div>
-                                <ul class="list-group">
+                                <ul class="list-group" style="max-height: 200px; overflow-y: auto;">
                                 </ul>
                             </div>
                         </div>
@@ -94,7 +94,7 @@
                                 <p class="mb-1">Fecth Message</p>
                                 <button type="button" id="btn-close-chat" class="ms-auto btn btn-danger btn-sm">Close Chat</button>
                               </div>
-                            <div id="fetch-message"></div>
+                            <div id="fetch-message" style="max-height: 400px; overflow-y: auto;"></div>
                             <input type="hidden" id="chat-id" name="chat_id" class="mb-3 form-control" />
                             <input type="hidden" id="from" name="from" class="mb-3 form-control" />
                             <input type="hidden" id="date" name="date" class="mb-3 form-control" />
@@ -113,7 +113,6 @@
                             <div class="d-flex mb-3">
                                 <p class="mb-1">Transfer to Agent</p>
                               </div>
-                            <div id="fetch-message"></div>
                             <input type="text" name="transfer_chat_id" class="transfer-chat-id mb-3 form-control" placeholder="Chat ID" />
                             <input type="text" name="transfer_to_agent" class="transfer-to-agent mb-3 form-control" placeholder="Agent ID" />
                             <input type="button" class="btn-transfer-chat btn btn-success" value="Transfer Chat">
@@ -124,7 +123,6 @@
                             <div class="d-flex mb-3">
                                 <p class="mb-1">Transfer to Department</p>
                               </div>
-                            <div id="fetch-message"></div>
                             <input type="text" name="transfer_chat_id" class="transfer-department-chat-id mb-3 form-control" placeholder="Chat ID" />
                             <input type="text" name="transfer_to_department" class="transfer-department-slug mb-3 form-control" placeholder="Department Slug" value="finance" />
                             <input type="button" class="btn-show-department btn btn-primary" value="Show Department">

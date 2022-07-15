@@ -610,6 +610,11 @@ const transferChat = async (io, socket, data) => {
     let departmentPTSocketRoom = `company:${initiator.company_name}:dept:${data.toDepartment}:pending_transfer_chat_room`
     // TRANSFER TO AGENT OR DEPARTMENT
     mySockets = data.toAgent ? (await io.in(agentPTSocketRoom).fetchSockets()) : (await io.in(departmentPTSocketRoom).fetchSockets())
+    if(!mySockets || mySockets.length <= 0) {
+        requestResult = errorResponseFormat(null, 'Failed to transfer chat. Agent or Department is not online.')
+        socket.emit('chat.transferresult', requestResult)
+    }
+
     for (let [index, sd] of mySockets.entries()) {
         assignedAgentSocket[index] = sd
     }
@@ -648,9 +653,17 @@ const transferChat = async (io, socket, data) => {
     // }
 
     // UPDATE STATUS
+    // UPDATE DEPARTMENT NAME
     // Set status to pending transfer
     let updateFirstMessageData = getMessages.chat_reply[0]
     updateFirstMessageData.status = 2
+
+    if(data.toAgent) {
+        if(updateFirstMessageData.department_name != assignedAgentSocket[0].data.user.department_name)
+            updateFirstMessageData.department_name = assignedAgentSocket[0].data.user.department_name
+    } else {
+        updateFirstMessageData.department_name = data.toDepartment
+    }
     await redisClient.call('JSON.SET', roomId, '[0]', JSON.stringify(updateFirstMessageData))
 
     /** Emit to FE */
