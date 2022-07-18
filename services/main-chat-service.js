@@ -427,23 +427,49 @@ const sendMessage = async(io, socket, data) => {
     }
 
     let chatContent = {
+        agent_name: sender.id ? sender.name : "",
         created_at: datetime,
-        updated_at: datetime,
         formatted_date: datetime,
         from: sender.id ? sender.id : sender.email, // agent get agent id or client
-        agent_name: sender.id ? sender.name : "",
+        message: data.message,
+        updated_at: datetime,
+        user_email: sender.id ? "" : sender.email, // agent get agent id or client
         user_name: sender.id ? "" : sender.name,
-        message: data.message
-    };
+    }
 
     // Save to db
     let saveMsg = await redisClient.call('JSON.ARRAPPEND', roomId, '.', JSON.stringify(chatContent))
 
     chatContent.success = true
+    chatContent.avatar = null
+    let currentRoomAgentData = await getMemberDataFromBubble([chatContent])
+    if(currentRoomAgentData && currentRoomAgentData.length > 0) {
+        chatContent.avatar = currentRoomAgentData[chatContent.from].avatar
+    }
 
     /** Emit to FE */
-    io.to(roomId).emit('show.room', chatContent)
-    io.to(roomId).emit('message', chatContent)
+    // Emit the same data to members in room id
+    // io.to(roomId).emit('show.room', chatContent)
+    // io.to(roomId).emit('message', chatContent)
+
+    // Emit the same data, and is_sender key to members in room id
+    let socketList = await io.in(roomId).fetchSockets()
+    if(socketList && socketList.length > 0) {
+        for(let [index, sd] of socketList.entries()) {
+            if(sd.data.user) {
+                if(sd.data.user.id && sd.data.user.id == chatContent.from) { // is agent
+                    chatContent.is_sender = true
+                } else if (sd.data.user.email && sd.data.user.email == chatContent.from) { // is client
+                    chatContent.is_sender = true
+                } else {
+                    chatContent.is_sender = false
+                }
+
+                io.to(sd.id).emit('show.room', chatContent)
+                io.to(sd.id).emit('message', chatContent)
+            }
+        } // end for
+    }
 
     /**
      * Emit to:
@@ -471,7 +497,7 @@ const sendMessage = async(io, socket, data) => {
         // code...
 
         let socketList = await io.in(selectedRoom).fetchSockets()
-        if(socketList) {
+        if(socketList && socketList.length > 0) {
             for(let [index, sd] of socketList.entries()) {
                 if(sd.data.user) {
                     let listChat = (getMessages.status == 0) ? await getPendingListByUser(sd) : await getPendingTransferListByUser(sd)
