@@ -23,7 +23,7 @@ let predefinedChatKeys = {
     agent_id: null,
     agent_name: null,
     agent_uuid: null,
-    avatar: null, // agent avatar
+    // avatar: null, // agent avatar
     channel_name: null,
     chat_id: null, // item.split(':').pop()
     company_name: null,
@@ -35,7 +35,7 @@ let predefinedChatKeys = {
     room: null, // item
     status: null,
     topic_name: null,
-    user_avatar: null,
+    // user_avatar: null,
     user_email: null,
     user_name: null,
     user_phone: null,
@@ -353,7 +353,7 @@ const getMessagesByChatId = async (id, socketOrRequest=null) => {
                 // Set Agent Key in List
                 let latestAgentHandleMessage = currentRoomAgentData.pop()
                 if(latestAgentHandleMessage) {
-                    chatListWithBubble[idx].avatar = latestAgentHandleMessage.avatar ? latestAgentHandleMessage.avatar : null
+                    // chatListWithBubble[idx].avatar = latestAgentHandleMessage.avatar ? latestAgentHandleMessage.avatar : null
                     chatListWithBubble[idx].agent_email = latestAgentHandleMessage.email_agent ? latestAgentHandleMessage.email_agent : null
                     chatListWithBubble[idx].agent_id = latestAgentHandleMessage.agent_id ? latestAgentHandleMessage.agent_id : null
                     chatListWithBubble[idx].agent_name = latestAgentHandleMessage.name_agent ? latestAgentHandleMessage.name_agent : null
