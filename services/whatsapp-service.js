@@ -145,7 +145,9 @@ const integrateWhatsappAccount = async(io=null, socket=null, data, syncData = fa
             })
         };
 
-        console.log(`System is getting ready sync session of client id ${companyID}`, this.clientWa[companyID])
+        console.log(`System is getting ready sync session of client id ${companyID}`)
+        // console.log(this.clientWa[companyID])
+
         this.clientWa[companyID].instanceWA.initialize()
         .then(async () => {
             // const version = await this._client.getWWebVersion()
@@ -283,12 +285,7 @@ const syncWhatsappAccountSession = async (data=null) => {
     console.log('listDC', listDC)
     if (listDC && listDC.length > 0) {
         listDC.forEach((result) => {
-            integrateWhatsappAccount(
-                null,
-                null,
-                result,
-                true
-            )
+            integrateWhatsappAccount(null, null, result, true)
         })
     }
 
