@@ -132,10 +132,10 @@ const initPubSub = () => {
 };
 initPubSub();
 
-// Store people in chatroom
-var chatters = [];
-// Store messages in chatroom
-var chat_messages = [];
+const {
+  initWhatsappService
+} = require('./services/whatsapp-service')
+initWhatsappService()
 
 /**
  * UI
@@ -156,13 +156,13 @@ app.post('/login', async function (req, res) {
   // Save some data to session
   let user = {
     id: savedData.agent_id,
-    email: savedData.email_agent,
-    name: savedData.name_agent,
     avatar: savedData.avatar,
-    id_permission: savedData.id_permission,
-    phone: savedData.phone_agent,
     company_name: savedData.company_name,
     department_name: savedData.department_name,
+    email: savedData.email_agent,
+    name: savedData.name_agent,
+    phone: savedData.phone_agent,
+    roles_id: savedData.roles_id,
     token: savedData.token,
   };
   req.session.user = user;

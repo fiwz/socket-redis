@@ -23,6 +23,10 @@ const {
     userInsertAndJoinRoom,
 } = require('../services/user-service');
 
+const {
+    integrateWhatsappAccount
+} = require('../services/whatsapp-service')
+
 module.exports = async (io, socket) => {
     // console.log('==========', 'user session', socket.request.session);
     console.log('A user is connected to socket');
@@ -129,6 +133,14 @@ module.exports = async (io, socket) => {
             socket.emit('chat.onrefresh', result);
         }
     });
+
+    /**
+     * Integrate Whatsapp Account
+     */
+    socket.on('integrate.whatsapp', async (data) => {
+        const connect = await integrateWhatsappAccount(io, socket, data)
+        console.log('coba', connect)
+    })
 
     socket.on('disconnect', async () => {
         if(socket.request.session.user !== undefined) {

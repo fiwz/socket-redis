@@ -1,5 +1,5 @@
 $(() => {
-  const BASE_URL = 'http://localhost:4000'
+  const BASE_URL = 'http://localhost:4001'
   const socket = io(BASE_URL, {
     withCredentials: true,
     autoConnect: true,
@@ -83,11 +83,29 @@ $(() => {
       uuid: '3b1d27cd-6eab-11ec-a9f4-e0d55e1b6010',
     };
 
+    let dataAuthCompany = {
+        agent_id: 10,
+        avatar: 'http://localhost:8000/storage/assets/images/uploads/gravatar/gina-dwitasari-10.png',
+        company_name: 'Gina Company',
+        department_name: null,
+        email_agent: 'gina@qwords.co.id',
+        id_company: null,
+        id_department: null,
+        name_agent: 'Gina Dwitasari',
+        permission_name: 'Company',
+        phone_agent: null,
+        roles_id: 2,
+        status: 'online',
+        token: 'eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9.eyJhdWQiOiIxIiwianRpIjoiOTU4MGRmNDNlNDExZjIzZmFjZTJkZTFiNDEwMjI2MmQ5ZDE1YjFkNTUxMWM1NWI5ZjhlOTIwNTY0OTM4NmQyOGNkZTAxYzZmMjMxYmRmNTgiLCJpYXQiOjE2NTgxMTgyNDUuNTMyMzExLCJuYmYiOjE2NTgxMTgyNDUuNTMyMzE0LCJleHAiOjE2ODk2NTQyNDUuNTIwNywic3ViIjoiMTAiLCJzY29wZXMiOltdfQ.nnXjB-F-2Qt64nyoffH7vvbA4hs9Up9VgMrIrIkfXOn7EOasH3ah7NAlqpa3RPy3KgsSicohhYLbn-oRw3v5Fyt8kxF5NOINFASplzIR32_dEutGZl_gs3n6YPUS0ko-FN_k1n9cQGYkr6KKN5GJzGcTgdOhiq_zP5T5Rt6d_DNTkCDtkk-G6gjRje6gtfBDJ4d6GUBA38wDqaneDbxswhEE6fy96jiL1GmNZRPN41X7gfv3VFfGY3j5QjwcjT0lAuHySdpvlVsGs4JocO1KossT1MBfnw0MTGSTPBzKgt6ZyNezy89H0Lc0gZLl0aLY0Kw4SBDcvIlKrbrcw-jvKylYj6C24Il5ZSndVKIVnXvdGiJPAQ6BuuAL7GmQ1cLBtR7zu2dX9fWz5N99jn6PtQnwV1HUEvx3kIlki_aWAX_DWyOO8DvCmTwnCpr_Hk22dako7VKumkCkgRTloNFGeiod52eyVh2JtGc2CJSl9EM9j99rMqykpn9tiPchpHhiN1pAk4quR-dTK3aWq9hpvi5f7JkFtvcTnjHTrTVY2i689MJvWF-K3rweVCsAjYlHqaEJOadsSbmN7N9kG-6zg93Te723qs_h2wIsKfLfA2prn-lM35JX_Jq_fIchlSjoOtzOt_PqvtjMa0u1QRVw2ugVCTpRTYDSdosEzCf_gHQ',
+        type_user: 'company',
+        uuid: '5aeb4748-5e53-11ec-93e9-e0d55e1b6010',
+    }
+
     // With fetch
     const response = fetch(`${BASE_URL}/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(dataAuth3),
+      body: JSON.stringify(dataAuthCompadany),
       credentials: 'include',
     }).then((response) => {
       console.log('Login as agent response: ', response);
@@ -627,6 +645,25 @@ $(() => {
   $('.btn-show-department').click(() => {
     socket.emit('departments.online');
   });
+
+    /**
+     * Integrate Whatsapp Account
+     */
+    $('.btn-integrate-whatsapp').click(() => {
+        const allData = {
+            // token: $.trim($('.integrate-whatsapp-token').val()),
+            inputPhone: $.trim($('.integrate-whatsapp-input-phone').val()),
+        };
+        socket.emit('integrate.whatsapp', allData);
+    });
+
+    socket.on('integrate.whatsappresult', (data) => {
+        console.log('Listen to integrate.whatsappresult:', data);
+    })
+
+    socket.on('integrate.whatsapp.qr', (data) => {
+        console.log('Listen to integrate.whatsapp.qr:', data);
+    })
 
   /** Client Area */
   /**

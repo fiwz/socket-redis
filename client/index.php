@@ -133,5 +133,28 @@
                 </div>
             </div>
 
+            <div class="col-12">
+                <div class="wrap-login py-4 px-5 bg-light border rounded rounded-4 my-3">
+                    <div class="row">
+                        <div class="col-6">
+                            <div class="d-flex mb-3">
+                                <p class="mb-1">Integrate Whatsapp Account</p>
+                              </div>
+                            <!-- <input type="text" name="integrate_whatsapp_token" class="integrate-whatsapp-token mb-3 form-control" placeholder="Token (Login in V1)" /> -->
+                            <input type="text" name="integrate_whatsapp_input_phone" class="integrate-whatsapp-input-phone mb-3 form-control" placeholder="+6282212341234" />
+                            <input type="button" class="btn-integrate-whatsapp btn btn-success" value="Connect">
+
+                        </div>
+
+                        <div class="col-6">
+                            <div class="d-flex mb-3">
+                                <p class="mb-1"></p>
+                              </div>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+
         </div>
 </html>
