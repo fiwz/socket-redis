@@ -6,7 +6,8 @@ const sub = redis.sub
 
 const {
     getCurrentDateTime,
-    getMemberDataFromBubble
+    getMemberDataFromBubble,
+    replaceBaseUrl
 } = require("../utils/helpers");
 
 const {
@@ -17,28 +18,49 @@ const {
 /**
  * Define Variable
  */
+// Keys of List Chat
 let predefinedChatKeys = {
     // chat_reply: [],
+    // is_sender: null, // only in bubble chat
     agent_email: null,
     agent_id: null,
     agent_name: null,
     agent_uuid: null,
-    // avatar: null, // agent avatar
     channel_name: null,
     chat_id: null, // item.split(':').pop()
     company_name: null,
     department_name: null,
+    file_id: null,
+    file_name: null,
+    file_path: null,
+    file_type: null,
+    file_url: null,
     formatted_date: null,
     id_channel: null,
-    // is_sender: null, // only in bubble chat
     message: null,
     room: null, // item
     status: null,
     topic_name: null,
-    // user_avatar: null,
     user_email: null,
     user_name: null,
     user_phone: null,
+}
+
+// Keys of Bubble Chat
+let predefinedBubbleKeys = {
+    agent_name: null,
+    created_at: null,
+    file_id: null,
+    file_name: null,
+    file_path: null,
+    file_type: null,
+    file_url: null,
+    formatted_date: null,
+    from: null, // agent get agent id or client | sender.id ? sender.id : sender.email
+    message: null,
+    updated_at: null,
+    user_email: null, // agent get agent id or client | sender.id ? "" : sender.email
+    user_name: null, // both agent and client have name
 }
 
 /**
@@ -332,9 +354,20 @@ const getMessagesByChatId = async (id, socketOrRequest=null) => {
                         user_email: firstMessage.from,
                         user_name: firstMessage.user_name,
                         user_phone: firstMessage.phone ? firstMessage.phone : null,
+                        file_id: latestMessage.file_id ? latestMessage.file_id : null,
+                        file_name: latestMessage.file_name ? latestMessage.file_name : null,
+                        file_path: latestMessage.file_path ? latestMessage.file_path : null,
+                        file_type: latestMessage.file_type ? latestMessage.file_type : null,
+                        file_url: latestMessage.file_url ? latestMessage.file_url : null,
                     }
                 }
 
+                if(latestMessage.file_path && latestMessage.file_url) {
+                    let changedUrl = await replaceBaseUrl(latestMessage.file_url)
+                    latestMessage.file_url = changedUrl
+                }
+
+                // Show Chat Data and Its Bubble/Chat Replies
                 if(withBubble && withBubble == 'WITHBUBBLE') {
                     if(parsedBubbles.length > 0) {
                         for(let [index, bubbleItem] of parsedBubbles.entries()) {
@@ -345,6 +378,11 @@ const getMessagesByChatId = async (id, socketOrRequest=null) => {
                                 if(withSocketOrRequest)
                                     bubbleItem.is_sender = currentLoggedInUser.id == currentRoomAgentData[bubbleItem.from].agent_id ? true : false
                             } // end if agent data exists
+
+                            if(bubbleItem.file_path && bubbleItem.file_url) {
+                                let changedUrl = await replaceBaseUrl(bubbleItem.file_url)
+                                bubbleItem.file_url = changedUrl
+                            }
                         }
                     }
                     chatListWithBubble[idx].chat_reply = parsedBubbles
@@ -426,15 +464,24 @@ const sendMessage = async(io, socket, data) => {
         return userInRoom
     }
 
-    let chatContent = {
-        agent_name: sender.id ? sender.name : "",
-        created_at: datetime,
-        formatted_date: datetime,
-        from: sender.id ? sender.id : sender.email, // agent get agent id or client
-        message: data.message,
-        updated_at: datetime,
-        user_email: sender.id ? "" : sender.email, // agent get agent id or client
-        user_name: sender.id ? "" : sender.name,
+    let chatContent = predefinedBubbleKeys
+    chatContent = {
+        ...chatContent,
+        ...{
+            agent_name: sender.id ? sender.name : "",
+            created_at: datetime,
+            file_id: data.file_id ? data.file_id : null,
+            file_name: data.file_name ? data.file_name : null,
+            file_path: data.file_path ? data.file_path : null,
+            file_type: data.file_type ? data.file_type : null,
+            file_url: data.file_url ? data.file_url : null,
+            formatted_date: datetime,
+            from: sender.id ? sender.id : sender.email, // agent get agent id or client
+            message: data.message,
+            updated_at: datetime,
+            user_email: sender.id ? "" : sender.email, // agent get agent id or client
+            user_name: sender.id ? "" : sender.name,
+        }
     }
 
     // Save to db
@@ -445,6 +492,11 @@ const sendMessage = async(io, socket, data) => {
     let currentRoomAgentData = await getMemberDataFromBubble([chatContent])
     if(currentRoomAgentData && currentRoomAgentData.length > 0) {
         chatContent.avatar = currentRoomAgentData[chatContent.from].avatar
+    }
+
+    if(chatContent.file_path && chatContent.file_url) {
+        let changedUrl = await replaceBaseUrl(chatContent.file_url)
+        chatContent.file_url = changedUrl
     }
 
     /** Emit to FE */

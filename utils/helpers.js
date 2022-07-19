@@ -1,4 +1,6 @@
 const moment = require('moment');
+const url = require("url")
+
 // Redis
 const redis = require('../config/redis');
 const redisF = redis.justVariable
@@ -95,10 +97,29 @@ const getMemberDataFromBubble = async (arrayBubble) => {
     return `Q${result+currentUnix}`
 }
 
+/**
+ * Change Base Url
+ *
+ * Example: https://google.com/images/cats.jpg > https://bing.com/images/cats.jpg
+ * @param {*} stringUrl https://google.com/images/cats.jpg
+ * @param {*} baseUrl  https://bing.com
+ * @returns
+ */
+const replaceBaseUrl = async(stringUrl, baseUrl='') => {
+    if(!stringUrl)
+        return stringUrl
+
+    let breakUrl = url.parse(stringUrl, true)
+    let changedUrl = (baseUrl ? baseUrl : process.env.FILE_STORAGE_URL) + breakUrl.path
+
+    return changedUrl
+}
+
 module.exports = {
     generateChatId,
     getCurrentDateTime,
     getMemberDataFromBubble,
     getValueByArrayColumn,
+    replaceBaseUrl,
     slugify,
 }
