@@ -1,5 +1,6 @@
 $(() => {
-  const BASE_URL = 'http://localhost:4001'
+  const BASE_URL = 'http://localhost:4000'
+  const BASE_URL_V1 = 'http://localhost:8000'
   const socket = io(BASE_URL, {
     withCredentials: true,
     autoConnect: true,
@@ -105,7 +106,7 @@ $(() => {
     const response = fetch(`${BASE_URL}/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(dataAuthCompadany),
+      body: JSON.stringify(dataAuth),
       credentials: 'include',
     }).then((response) => {
       console.log('Login as agent response: ', response);
@@ -253,6 +254,20 @@ $(() => {
                         <p style='margin: 0px;'>${
                           chat.agent_name ? chat.agent_name : chat.from
                         }</p>
+                        <div style='width: 100px; height: auto'>
+                            <img
+                                src='${chat.file_url && chat.file_type == 'image' ? chat.file_url : '#'}'
+                                class='${chat.file_url && chat.file_type == 'image' ? 'd-block' : 'd-none'}'
+                                style='width: 100px;height: auto;'
+                                >
+                        </div>
+                        <a
+                            href='${chat.file_url && chat.file_type != 'image' ? chat.file_url : '#'}'
+                            class='${chat.file_url && chat.file_type != 'image' ? 'd-block' : 'd-none'}'
+                            target='_blank'
+                            >
+                            ${chat.file_url}
+                        </a>
                         <p style='margin: 0px;'>${chat.message}</p>
                         <small>${chat.formatted_date}</small>
                     </div
@@ -314,6 +329,20 @@ $(() => {
                     <p style='margin: 0px;'>${
                       chat.agent_name ? chat.agent_name : chat.from
                     }</p>
+                    <div style='width: 100px; height: auto'>
+                        <img
+                            src='${chat.file_url && chat.file_type == 'image' ? chat.file_url : '#'}'
+                            class='${chat.file_url && chat.file_type == 'image' ? 'd-block' : 'd-none'}'
+                            style='width: 100px;height: auto;'
+                            >
+                    </div>
+                    <a
+                        href='${chat.file_url && chat.file_type != 'image' ? chat.file_url : '#'}'
+                        class='${chat.file_url && chat.file_type != 'image' ? 'd-block' : 'd-none'}'
+                        target='_blank'
+                        >
+                        ${chat.file_url}
+                    </a>
                     <p style='margin: 0px;'>${chat.message}</p>
                     <small>${chat.formatted_date}</small>
                 </div
@@ -363,10 +392,71 @@ $(() => {
       chatId = roomArr.pop();
     }
 
-    socket.emit('message', {
-      message: $('#message-reply').val(),
-      chatId: chatId,
-    });
+    // Upload File via API
+    // And then emit to socket
+    let file = document.querySelector('#message-reply-file').files[0]
+    let token = $.trim($('#message-reply-file-token').val())
+    let secret = $.trim($('#message-reply-file-api-secret').val())
+    let url = `${BASE_URL_V1}/api/chat/agent/upload-file`
+    let headers = {
+        "Content-Type": "multipart/form-data",
+        "X-Requested-With": "xmlhttprequest",
+        Authorization: `Bearer ${token}`
+    }
+
+    if(secret) {
+        url = `${BASE_URL_V1}/api/chat/upload-file?api_key=${secret}`
+        headers = {
+            "Content-Type": "multipart/form-data",
+            "X-Requested-With": "xmlhttprequest",
+        }
+    }
+
+    if(file) {
+        const obj = {
+            hello: "world"
+        };
+        const json = JSON.stringify(obj);
+        const blob = new Blob([json], {
+            type: 'application/json'
+        });
+        const data = new FormData();
+        data.append("document", blob);
+        data.append("file",  file)
+
+        axios({
+            method: 'post',
+            url: url,
+            data: data,
+            headers: headers
+            // withCredentials: true,
+        })
+        .then(function (response) {
+            console.log('Upload file response: ', response.data);
+
+            let fileData = response.data.data
+            socket.emit('message', {
+                chatId: chatId,
+                file_id: fileData.id ? fileData.id : null,
+                file_name: fileData.name ? fileData.name : null,
+                file_path: fileData.path ? fileData.path : null,
+                file_type: fileData.type ? fileData.type : null,
+                file_url: fileData.url ? fileData.url : null,
+                message: $('#message-reply').val(),
+            });
+
+            $('#message-reply-file').val('')
+        })
+        .catch(function (error) {
+            alert('oops');
+            console.error(error);
+        });
+    } else {
+        socket.emit('message', {
+            chatId: chatId,
+            message: $('#message-reply').val(),
+        });
+    }
   });
 
   $(document).on('click', '#btn-close-chat', function (e) {
@@ -559,6 +649,20 @@ $(() => {
             <p style='margin: 0px;'>${
               message.agent_name ? message.agent_name : message.from
             }</p>
+            <div style='width: 100px; height: auto'>
+                <img
+                    src='${message.file_url && message.file_type == 'image' ? message.file_url : '#'}'
+                    class='${message.file_url && message.file_type == 'image' ? 'd-block' : 'd-none'}'
+                    style='width: 100px;height: auto;'
+                    >
+            </div>
+            <a
+                href='${message.file_url && message.file_type != 'image' ? message.file_url : '#'}'
+                class='${message.file_url && message.file_type != 'image' ? 'd-block' : 'd-none'}'
+                target='_blank'
+                >
+                ${message.file_url}
+            </a>
             <p style='margin: 0px;'>${message.message}</p>
             <small>${message.formatted_date}</small>
         </div
@@ -680,6 +784,20 @@ $(() => {
                     <p style='margin: 0px;'>${
                       chat.agent_name ? chat.agent_name : chat.from
                     }</p>
+                    <div style='width: 100px; height: auto'>
+                        <img
+                            src='${chat.file_url && chat.file_type == 'image' ? chat.file_url : '#'}'
+                            class='${chat.file_url && chat.file_type == 'image' ? 'd-block' : 'd-none'}'
+                            style='width: 100px;height: auto;'
+                            >
+                    </div>
+                    <a
+                        href='${chat.file_url && chat.file_type != 'image' ? chat.file_url : '#'}'
+                        class='${chat.file_url && chat.file_type != 'image' ? 'd-block' : 'd-none'}'
+                        target='_blank'
+                        >
+                        ${chat.file_url}
+                    </a>
                     <p style='margin: 0px;'>${chat.message}</p>
                     <small>${chat.formatted_date}</small>
                 </div
