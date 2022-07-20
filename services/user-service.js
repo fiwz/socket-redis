@@ -17,9 +17,8 @@ const {
 
 const {
     getCurrentDateTime,
+    revertSlugify,
     slugify,
-    getValueByArrayColumn,
-    getOnlineDept
 } = require('../utils/helpers');
 
 /**
@@ -206,15 +205,13 @@ const getCompanyOnlineDepartments = async (io, socket = null, request = null) =>
             for(let [i, user] of onlineUsers.entries()) {
                 if(user.department_name) {
                     onlineDepartments[user.department_name] = {
-                        // code...
-                        name: user.department_name, // will be changed later
+                        name:  revertSlugify(user.department_name),
                         slug: user.department_name,
                         online_agents: onlineDepartments[user.department_name] && onlineDepartments[user.department_name].online_agents ? (Number.parseInt(onlineDepartments[user.department_name].online_agents) + 1) : 1
                     }
 
                 }
             }
-
             arrOnlineDepartments = Object.values(onlineDepartments)
         }
 

@@ -37,6 +37,21 @@ const slugify = function(str) {
     return str;
 }
 
+const revertSlugify = function(str) {
+    if(str) {
+        str = str.replace(/^\s+|\s+$/g, ''); // trim
+        str = str.toLowerCase();
+
+        // remove accents, swap ñ for n, etc
+        // code...
+
+        str = str.replace(/[^a-z0-9 -]/g, ' ') // remove invalid chars
+                    .replace(/\s+/g, ' ') // collapse whitespace and replace by space char
+                    .replace(/-+/g, ' '); // collapse dashes
+    }
+    return str;
+}
+
 /**
  * Array Column
  *
@@ -121,5 +136,6 @@ module.exports = {
     getMemberDataFromBubble,
     getValueByArrayColumn,
     replaceBaseUrl,
+    revertSlugify,
     slugify,
 }
