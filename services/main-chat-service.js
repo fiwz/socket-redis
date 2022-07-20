@@ -813,7 +813,6 @@ const transferChat = async (io, socket, data) => {
 
   // Check if room exists
   let getMessages = await getMessagesByChatId(chatId);
-  console.log("transferChatResult:", getMessages);
   if (!getMessages.room) {
     console.error("Transfer chat error: empty keys. Room not found");
 
@@ -826,7 +825,10 @@ const transferChat = async (io, socket, data) => {
   }
 
   // Check Transfer Destination
-  await checkTransferDestination(io, socket, data);
+  let checkDestination = await checkTransferDestination(io, socket, data);
+  if(!checkDestination.success) {
+    return checkDestination
+  }
 
   roomId = getMessages.room;
   let previousAgentOngoingRoomKey = `user:${initiator.id}:rooms`;
@@ -849,6 +851,7 @@ const transferChat = async (io, socket, data) => {
       "Failed to transfer chat. Agent or Department is not online."
     );
     socket.emit("chat.transferresult", requestResult);
+    return requestResult
   }
 
   for (let [index, sd] of mySockets.entries()) {
@@ -901,7 +904,7 @@ const transferChat = async (io, socket, data) => {
   let updateFirstMessageData = getMessages.chat_reply[0];
   updateFirstMessageData.status = 2;
 
-  if (data.toAgent) {
+  if (data.toAgent && assignedAgentSocket[0]) {
     if (
       updateFirstMessageData.department_name !=
       assignedAgentSocket[0].data.user.department_name
