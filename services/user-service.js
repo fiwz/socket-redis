@@ -188,10 +188,11 @@ const getCompanyOnlineUsers = async (io, socket = null, request = null) => {
  * @param {*} io
  * @param {*} socket
  * @param {*} request
- * @returns Object {}
+ * @returns Array []
  */
 const getCompanyOnlineDepartments = async (io, socket = null, request = null) => {
     let onlineDepartments = {};
+    let arrOnlineDepartments = [];
     let sourceAuthData = socket ? socket.request.session : request.session;
 
     if(sourceAuthData.user !== undefined) {
@@ -200,9 +201,7 @@ const getCompanyOnlineDepartments = async (io, socket = null, request = null) =>
 
         // Get Department By Online Users via Socket
         let onlineUsers = await getCompanyOnlineUsers(io, socket, request)
-        // onlineDepartments = await getValueByArrayColumn(onlineUsers, 'department_name', 'DISTINCT')
 
-        let numberOfUsers = 0
         if(Array.isArray(onlineUsers) && onlineUsers.length > 0) {
             for(let [i, user] of onlineUsers.entries()) {
                 if(user.department_name) {
@@ -215,10 +214,12 @@ const getCompanyOnlineDepartments = async (io, socket = null, request = null) =>
 
                 }
             }
+
+            arrOnlineDepartments = Object.values(onlineDepartments)
         }
 
         /** Emit to FE */
-        io.to(companyOnlineUserRoom).emit('departments.online', onlineDepartments); // to all user in a company
+        io.to(companyOnlineUserRoom).emit('departments.online', arrOnlineDepartments); // to all user in a company
     }
 
     return onlineDepartments;
