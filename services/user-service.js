@@ -18,7 +18,8 @@ const {
 const {
     getCurrentDateTime,
     slugify,
-    getValueByArrayColumn
+    getValueByArrayColumn,
+    getOnlineDept
 } = require('../utils/helpers');
 
 /**
@@ -187,10 +188,10 @@ const getCompanyOnlineUsers = async (io, socket = null, request = null) => {
  * @param {*} io
  * @param {*} socket
  * @param {*} request
- * @returns
+ * @returns Object {}
  */
 const getCompanyOnlineDepartments = async (io, socket = null, request = null) => {
-    let onlineDepartments = [];
+    let onlineDepartments = {};
     let sourceAuthData = socket ? socket.request.session : request.session;
 
     if(sourceAuthData.user !== undefined) {
@@ -199,7 +200,22 @@ const getCompanyOnlineDepartments = async (io, socket = null, request = null) =>
 
         // Get Department By Online Users via Socket
         let onlineUsers = await getCompanyOnlineUsers(io, socket, request)
-        onlineDepartments = await getValueByArrayColumn(onlineUsers, 'department_name', 'DISTINCT')
+        // onlineDepartments = await getValueByArrayColumn(onlineUsers, 'department_name', 'DISTINCT')
+
+        let numberOfUsers = 0
+        if(Array.isArray(onlineUsers) && onlineUsers.length > 0) {
+            for(let [i, user] of onlineUsers.entries()) {
+                if(user.department_name) {
+                    onlineDepartments[user.department_name] = {
+                        // code...
+                        name: user.department_name, // will be changed later
+                        slug: user.department_name,
+                        online_agents: onlineDepartments[user.department_name] && onlineDepartments[user.department_name].online_agents ? (Number.parseInt(onlineDepartments[user.department_name].online_agents) + 1) : 1
+                    }
+
+                }
+            }
+        }
 
         /** Emit to FE */
         io.to(companyOnlineUserRoom).emit('departments.online', onlineDepartments); // to all user in a company
