@@ -45,12 +45,23 @@ const importFileType = async () => {
 }
 importFileType()
 
-const { getCurrentDateTime } = require("../utils/helpers")
-
 const {
     successResponseFormat,
     errorResponseFormat
 } = require("../utils/response-handler")
+
+const {
+    generateChatId,
+    getCurrentDateTime,
+    randomString,
+    slugify
+} = require("../utils/helpers")
+
+const {
+    getClientWhatsappOngoingChat,
+    getPendingListByUser,
+    sendMessage,
+} = require("./main-chat-service")
 
 /**
  * Define Variable
@@ -58,8 +69,8 @@ const {
 this.clientWa = []
 
 const initWhatsappService = (io=null, socket=null, data=null) => {
-    // console.log('init wa session')
-    syncWhatsappAccountSession()
+    console.log('init wa session')
+    syncWhatsappAccountSession(io)
 }
 
 /**
@@ -101,7 +112,8 @@ const integrateWhatsappAccount = async(io=null, socket=null, data, syncData = fa
 
     // Set companyID and other variables
     let companyID = null
-    // let companyUuid = null
+    let companyUuid = null
+    let companyName = null
     let phoneNumber = syncData ? data.phone_number : data.inputPhone
     let requestResult = null
     let user = null
@@ -116,11 +128,14 @@ const integrateWhatsappAccount = async(io=null, socket=null, data, syncData = fa
             return errorResponseFormat(null, 'Failed to integrate account. Features only available for company', 403)
 
         companyID = user.id
+        companyUuid = user.uuid
+        companyName = user.company_name
     }
 
     if(syncData) {
         companyID = parseInt(data.id_agent);
-        // companyUuid = data.uuid;
+        companyUuid = data.uuid
+        companyName = slugify(data.company_name)
 
         const authStrategy = new LocalAuth({
             puppeteer,
@@ -135,7 +150,8 @@ const integrateWhatsappAccount = async(io=null, socket=null, data, syncData = fa
 
         this.clientWa[companyID] = {
             companyID,
-            // companyUuid,
+            companyUuid,
+            companyName,
             phoneNumber,
             instanceWA: new WAClient({
                 puppeteer,
@@ -146,7 +162,6 @@ const integrateWhatsappAccount = async(io=null, socket=null, data, syncData = fa
         };
 
         console.log(`System is getting ready sync session of client id ${companyID}`)
-        // console.log(this.clientWa[companyID])
 
         this.clientWa[companyID].instanceWA.initialize()
         .then(async () => {
@@ -157,10 +172,8 @@ const integrateWhatsappAccount = async(io=null, socket=null, data, syncData = fa
         .catch((err) => {
             console.error('Error when sync whatsapp session: ', err)
         })
-
-        // console.log("current company list: ", Object.keys(this.clientWa))
     } else {
-        // console.log('A user is trying to integrate whatsapp', user)
+        console.log('A user is trying to integrate whatsapp', user)
 
         // Check phone number (unique)
         const feedData = await dbm.validateConnectWhatsapp({
@@ -174,13 +187,14 @@ const integrateWhatsappAccount = async(io=null, socket=null, data, syncData = fa
         }
 
         // Init whatsapp account
-        // companyID = parseInt(data.companyID)
         this.clientWa[companyID] = {
+            companyID,
+            companyUuid,
+            companyName,
             phoneNumber,
             token: user.token,
             instanceWA: new WAClient({
-            authStrategy: new LocalAuth({ clientId: companyID })
-            // authStrategy: new NoAuth()
+                authStrategy: new LocalAuth({ clientId: companyID })
             })
         }
         this.clientWa[companyID].instanceWA.initialize()
@@ -221,23 +235,14 @@ const integrateWhatsappAccount = async(io=null, socket=null, data, syncData = fa
 
     this.clientWa[companyID].instanceWA.on("ready", async () => {
         console.log("Client whatsapp is ready!")
-    })
 
-    this.clientWa[companyID].instanceWA.on("ready", async () => {
-        console.log("Client whatsapp is ready!")
-
-        // return console.log('Data in this.clientWa[companyID]', this.clientWa[companyID])
-
-        // Handle update
-        // code...
-        // this.handleMessageWa(agentNamespace, this.clientWa[companyID]) // start handle update after get ready state
-
+        // Store new integrated account
         if(data.inputPhone) {
             // Check on authenticated
             // Whether the given phone number is the same as scanned phone number
             const info = this.clientWa[companyID].instanceWA.info
-            console.log("authenticated luser info:", info)
-            console.log("current wa state auth: ", await this.clientWa[companyID].instanceWA.getState())
+            // console.log("authenticated luser info:", info)
+            // console.log("current wa state auth: ", await this.clientWa[companyID].instanceWA.getState())
 
             let authenticatedNumber = '+' + info.wid.user
             if(data.inputPhone != authenticatedNumber) {
@@ -247,7 +252,6 @@ const integrateWhatsappAccount = async(io=null, socket=null, data, syncData = fa
 
                 return requestResult
             }
-        // }
 
             // Store Data to Database
             const updateData = await dbm.integrateWhatsappAccount({
@@ -267,10 +271,20 @@ const integrateWhatsappAccount = async(io=null, socket=null, data, syncData = fa
             socket.emit('integrate.whatsappresult', requestResult)
             return requestResult
         }
+
+        // Handle update
+        handleMessageWa(io, this.clientWa[companyID]); // start handle update after get ready state
     })
 }
 
-const syncWhatsappAccountSession = async (data=null) => {
+/**
+ * Sync/reconnect Whatsapp Account
+ * That already integrated
+ *
+ * Use together with integrateWhatsappAccount()
+ * @param {*} data
+ */
+const syncWhatsappAccountSession = async(io, data=null) => {
     // dev debug
     // dev testing
     // let coba = integrateWhatsappAccount(null, null, {
@@ -278,17 +292,172 @@ const syncWhatsappAccountSession = async (data=null) => {
     //     phone_number: '+6289517723708'
     // },
     // true)
-
     const dataConnected = await dbm.getWaAccounts();
     const listDC = dataConnected.data;
 
-    console.log('listDC', listDC)
     if (listDC && listDC.length > 0) {
         listDC.forEach((result) => {
-            integrateWhatsappAccount(null, null, result, true)
+            integrateWhatsappAccount(io, null, result, true)
         })
     }
+}
 
+const handleMessageWa = async (io=null, whichClient) => {
+    console.log(`Start handle update for company id ${whichClient.companyID}`);
+
+    whichClient.instanceWA.on("ready", async (cek) => {
+        console.log(`Company id ${whichClient.companyID} is ready to receive message`);
+    });
+
+    // Handle whatsapp message updates
+    whichClient.instanceWA.on("message", async (message) => {
+        try {
+            let messageFrom = message.from;
+            /**
+             * IS PRIVATE MESSAGE
+             *
+             * Example:
+             * from: '6285600098889@c.us', // private
+             * from: '120363023256565629@g.us', // group
+             * from: 'status@broadcast', // status
+             * */
+            let searchString = "@c"
+            let isPrivateChat = messageFrom.includes(searchString)
+
+            // dev debug
+            // console.log('')
+            // console.log('========================', 'isPrivateChat', isPrivateChat)
+            // console.log("incoming message to WA")
+            // console.log("===========", 'message:', message)
+            // console.log("===========", 'message.body:', message.body)
+            // console.log('')
+
+            if (isPrivateChat && (message.body !== "" || message.hasMedia)) {
+                // let uploadedFileId = null
+                let uploadedFileData = null
+
+                // HANDLE WA MEDIA
+                if (message.hasMedia) {
+                    const incomingMedia = await message.downloadMedia();
+
+                    if (incomingMedia == undefined) throw new Error("Undefined Media");
+
+                    const buffer = Buffer.from(incomingMedia.data, "base64");
+
+                    let inputData = {}
+                    let availableMime = ["image", "video", "archive", "other"];
+
+                    let uploadedType = await fileTypeFromBuffer_(buffer);
+                    let getMime = uploadedType.mime.split("/");
+                    let uploadedMime = getMime[0];
+                    let fileCategory = availableMime.includes(uploadedMime) ? uploadedMime : "other";
+                    // let dirCategory = fileCategory == "image" ? "images" : fileCategory;
+                    inputData.type = fileCategory;
+
+                    // write file to disk
+                    let fname = getCurrentDateTime('dateonly', '') + randomString(10) + "-" + slugify(messageFrom) + "." + uploadedType.ext;
+                    // let storeLocation = "public/assets/"+ dirCategory +"/uploads/agent-client-chat";
+                    // let storeLocation = "agent-client-chat";
+                    let storeLocation = "whatsapp-chat";
+                    let storeFileRename = storeLocation + "/" + fname;
+                    inputData.path = storeFileRename;
+                    inputData.name = fname;
+                    fs.writeFileSync("public/" + storeFileRename, buffer);
+
+                    // save path to database
+                    let store = await dbm.storeChatFilePath(inputData);
+                    // uploadedFileId = store.data.id;
+                    uploadedFileData = store.data
+                }
+                // END OF HANDLE WA MEDIA
+
+                // Create new chat
+                let companyName = whichClient.companyName
+                let formattedPhoneNumber = '+' + messageFrom.split('@').shift()
+                let datetime = getCurrentDateTime()
+                let chatContent = {
+                    created_at: datetime,
+                    updated_at: datetime,
+                    formatted_date: datetime,
+                }
+
+                // Set file key
+                if(uploadedFileData) {
+                    chatContent.file_id = uploadedFileData.id
+                    chatContent.file_name = uploadedFileData.name
+                    chatContent.file_path = uploadedFileData.path
+                    chatContent.file_type = uploadedFileData.type
+                    chatContent.file_url = uploadedFileData.url
+                }
+
+                // Check if client has on going chat
+                let isClientHasActiveChat = await getClientWhatsappOngoingChat(messageFrom)
+                // console.log('************************', 'isClientHasActiveChat', isClientHasActiveChat)
+
+                if(isClientHasActiveChat && isClientHasActiveChat.length <= 0) {
+                    await redisClient.sadd(`company:${whichClient.companyName}:online_clients`, messageFrom)
+                    let chatId = generateChatId() // generate chatId
+                    let chatRoom = `company:${companyName}:room:${chatId}`
+                    let chatRoomMembersKey = chatRoom + ':members'
+                    let pendingDepartmentRoom = `company:${companyName}:dept:fromsocmed:pending_chat_room` // from socmed
+                    chatContent = {
+                        ...chatContent,
+                        ...{
+                            company_name: companyName,
+                            department_name: null,
+                            from: messageFrom,
+                            message: message.body,
+                            no_whatsapp: messageFrom,
+                            topic_name: null,
+                            user_email: null,
+                            user_name: formattedPhoneNumber,
+                            user_phone: formattedPhoneNumber,
+                            id_channel: 2,
+                            channel_name: 'Whatsapp',
+                            status: 0
+                        },
+                    }
+                    let arrChatContent = [chatContent]
+
+                    // Create room
+                    let clientRoomKey = `client:${messageFrom}:rooms`
+                    let pendingRoomKey = `company:${companyName}:dept:fromsocmed:pending_chats`
+                    await redisClient.call('JSON.SET', chatRoom, '.', JSON.stringify(arrChatContent) )
+                    await redisClient.zadd(pendingRoomKey, getCurrentDateTime('unix'), chatRoom)
+                    await redisClient.set(clientRoomKey, chatRoom)
+                    await redisClient.zadd(chatRoomMembersKey, getCurrentDateTime('unix'), messageFrom)
+
+                    // Emit to room: pending chat from socmed room
+                    let mySockets = await io.in(pendingDepartmentRoom).fetchSockets();
+                    for([index, agentSd] of mySockets.entries()) {
+                        const pendingList = await getPendingListByUser(agentSd);
+                        io.to(agentSd.id).emit('chat.pending', pendingList);
+                    }
+                } else {
+                    // console.log('User already has an active message')
+
+                    chatContent = {
+                        ...chatContent,
+                        ...{
+                            chatId: isClientHasActiveChat.chat_id,
+                            message: message.body,
+                            from: messageFrom,
+                            message: message.body,
+                            no_whatsapp: messageFrom,
+                            user_name: formattedPhoneNumber,
+                            user_phone: formattedPhoneNumber,
+                        }
+                    }
+                    let storeMessage = await sendMessage( io, null, chatContent, 'whatsapp')
+                }
+            } // End of if message exists
+        } catch (e) {
+            let requestResult = errorResponseFormat(null, `Error handle whatsapp message update. ${e.message}`, (e.code == undefined ? 400 : e.code) )
+            console.error(requestResult)
+            return requestResult
+        }
+
+    })
 }
 
 module.exports = {

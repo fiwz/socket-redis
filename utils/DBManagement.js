@@ -107,6 +107,49 @@ class DBManagement {
 
         return await this.accessRouter(config);
     };
+
+    async sendChatWhatsapp(params) {
+        const data = params;
+        const config = {
+            method: "post",
+            data,
+            url: `${this.base}/api/chat/send-chat/channel/whatsapp`,
+            headers: {
+                "X-Requested-With": "xmlhttprequest",
+            },
+        };
+
+        return await this.accessRouter(config);
+    }
+
+    /**
+     * Store chat file path to database
+     * Only save the file information in database
+     * The file saved in current socket project directory
+     *
+     * - Use together in handle incoming message from whatsapp feature
+     * @param {*} params
+     * @returns
+     */
+    async storeChatFilePath(params) {
+        const data = {
+            path: params.path,
+            type: params.type,
+            name: params.name,
+        };
+
+        const config = {
+            method: "post",
+            data,
+        };
+        config.url = this.base + `/api/chat/upload-file/socmed`;
+        config.headers = {
+            "X-Requested-With": "xmlhttprequest",
+            "Content-Type": "application/json",
+        };
+
+        return await this.accessRouter(config);
+    }
 }
 
 module.exports = DBManagement;

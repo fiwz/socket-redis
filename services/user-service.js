@@ -264,12 +264,16 @@ const userGetAndJoinRoom = async (socket) => {
         if(user.department_name) {
             let pendingDepartmentRoom = `company:${user.company_name}:dept:${user.department_name}:pending_chat_room`;
             socket.join(pendingDepartmentRoom);
-        }
+        // }
 
-        if(user.department_name) {
+        // if(user.department_name) {
             // Join Pending Transfer to Department Room
             let pendingTransferDepartmentRoom = `company:${user.company_name}:dept:${user.department_name}:pending_transfer_chat_room`;
             socket.join(pendingTransferDepartmentRoom);
+
+            // Join Pending From Socmed Room
+            let pendingSocmedDepartmentRoom = `company:${user.company_name}:dept:fromsocmed:pending_chat_room`;
+            socket.join(pendingSocmedDepartmentRoom);
         }
 
         // Join Pending Transfer to Agent's Room
@@ -386,6 +390,16 @@ const userInsertAndJoinRoom = async (io, socket, id) => {
         let removeKeyInPending = await redisClient.zrem(agentPendingTransferChatRoom, roomId)
         if(!removeKeyInPending)
             console.error(`error remove ${roomId} from ${agentPendingTransferChatRoom}`)
+    }
+
+    // Check if room is in "pending list from socmed"
+    let pendingChatFromSocmed = `company:${currentCompanyName}:dept:fromsocmed:pending_chats`
+
+    let isExistsInPendingSocmed = await redisClient.zrank(pendingChatFromSocmed, roomId)
+    if(isExistsInPendingSocmed || isExistsInPendingSocmed == 0) {
+        let removeKeyInPending = await redisClient.zrem(pendingChatFromSocmed, roomId)
+        if(!removeKeyInPending)
+            console.error(`error remove ${roomId} from ${pendingChatFromSocmed}`)
     }
 
     let pendingList = await getPendingListByUser(socket)

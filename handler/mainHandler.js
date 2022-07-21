@@ -139,7 +139,7 @@ module.exports = async (io, socket) => {
      */
     socket.on('integrate.whatsapp', async (data) => {
         const connect = await integrateWhatsappAccount(io, socket, data)
-        console.log('coba', connect)
+        console.log('BE hasil dari integrate.whatsapp', connect)
     })
 
     socket.on('disconnect', async () => {

@@ -61,6 +61,8 @@ let predefinedBubbleKeys = {
     updated_at: null,
     user_email: null, // agent get agent id or client | sender.id ? "" : sender.email
     user_name: null, // both agent and client have name
+    user_phone: null,
+    no_whatsapp: null,
 }
 
 /**
@@ -71,9 +73,32 @@ let predefinedBubbleKeys = {
  * @returns
  */
 const getPendingListByUser = async(socket) => {
+    if (socket.request.session === undefined && socket.request.session.user === undefined) {
+        return {
+            data: null,
+            message: 'Failed to fetch data. Please login to continue'
+        }
+    }
+
     const user = socket.request.session.user
-    let listPendingChatRoom = `company:${user.company_name}:dept:${user.department_name}:pending_chats`
-    let pendingList = await getMessagesByManyChatRoom(listPendingChatRoom, null, null, socket)
+    let pendingList = []
+
+    // Pending list to agent's department
+    let departmentPendingRoomKey = `company:${user.company_name}:dept:${user.department_name}:pending_chats`
+    let departmentListRoomId = await redisClient.zrange(departmentPendingRoomKey, 0, -1);
+
+    // Pending transfer from socmed
+    let socmedPendingRoomKey = `company:${user.company_name}:dept:fromsocmed:pending_chats`
+    let socmedListRoomId = await redisClient.zrange(socmedPendingRoomKey, 0, -1);
+
+    // Merge list if both list are exist
+    if(departmentListRoomId.length > 0 && socmedListRoomId.length > 0) {
+        let arrayRoomId = await redisClient.zunion(2, departmentPendingRoomKey, socmedPendingRoomKey)
+        pendingList = await getMessagesByManyChatRoom(null, arrayRoomId, null, socket)
+    } else {
+        let roomKey = departmentListRoomId.length > 0 ? departmentPendingRoomKey : socmedPendingRoomKey
+        pendingList = await getMessagesByManyChatRoom(roomKey, null, null, socket)
+    }
 
     return pendingList
 }
@@ -194,6 +219,19 @@ const getAllChatList = async (socket) => {
  */
 const getClientOngoingChat = async (socket) => {
     let clientRoomKey = `client:${socket.request.session.user.email}:rooms`
+    let clientRoomId = await redisClient.get(clientRoomKey)
+    let chatId = clientRoomId ? clientRoomId.split(':').pop() : null
+    let getMessages = await getMessagesByChatId(chatId)
+    if(!getMessages.room) {
+        console.error(errorResponseFormat(null, `Room ${chatId} not found.`))
+        return []
+    }
+
+    return getMessages
+}
+
+const getClientWhatsappOngoingChat = async (WhatsappFromNumber) => {
+    let clientRoomKey = `client:${WhatsappFromNumber}:rooms`
     let clientRoomId = await redisClient.get(clientRoomKey)
     let chatId = clientRoomId ? clientRoomId.split(':').pop() : null
     let getMessages = await getMessagesByChatId(chatId)
@@ -353,7 +391,7 @@ const getMessagesByChatId = async (id, socketOrRequest=null) => {
                         topic_name: firstMessage.topic_name,
                         user_email: firstMessage.from,
                         user_name: firstMessage.user_name,
-                        user_phone: firstMessage.phone ? firstMessage.phone : null,
+                        user_phone: firstMessage.user_phone ? firstMessage.user_phone : null,
                         file_id: latestMessage.file_id ? latestMessage.file_id : null,
                         file_name: latestMessage.file_name ? latestMessage.file_name : null,
                         file_path: latestMessage.file_path ? latestMessage.file_path : null,
@@ -440,49 +478,73 @@ const getMessagesByChatId = async (id, socketOrRequest=null) => {
     return successResponseFormat(null, 'User is already in room')
 }
 
-const sendMessage = async(io, socket, data) => {
-    let sender = socket.request.session.user
+/**
+ * Send Message
+ *
+ * - Store data to database
+ * - Show incoming message to agent/client
+ *
+ * @param {*} io
+ * @param {*} socket
+ * @param {*} data
+ * @param {*} type
+ * @returns
+ */
+const sendMessage = async(io, socket=null, data, type=null) => {
     let chatId = data.chatId
     let roomId = ''
+    let chatContent = predefinedBubbleKeys
+    let getMessages = null
+    let datetime = getCurrentDateTime()
 
-    let getMessages = await getMessagesByChatId(chatId)
+    // Check/validate room id
+    getMessages = await getMessagesByChatId(chatId)
     if(!getMessages.room) {
         let requestResult = errorResponseFormat(data, `Failed to send message. Room ${chatId} not found.`)
         console.error(requestResult)
-        socket.emit('message', requestResult)
+        if(socket)
+            socket.emit('message', requestResult)
 
         return requestResult
     }
-
     roomId = getMessages.room // return the first keys
-    let datetime = getCurrentDateTime()
 
-    // Check if user is already join room
-    let userInRoom = await isUserInRoom(io, socket, roomId)
-    if(!userInRoom.success) {
-        socket.emit('message', userInRoom)
-        return userInRoom
-    }
+    // Chat type is Livechat
+    if(socket) {
+        let sender = socket.request.session.user
 
-    let chatContent = predefinedBubbleKeys
-    chatContent = {
-        ...chatContent,
-        ...{
-            agent_name: sender.id ? sender.name : "",
-            created_at: datetime,
-            file_id: data.file_id ? data.file_id : null,
-            file_name: data.file_name ? data.file_name : null,
-            file_path: data.file_path ? data.file_path : null,
-            file_type: data.file_type ? data.file_type : null,
-            file_url: data.file_url ? data.file_url : null,
-            formatted_date: datetime,
-            from: sender.id ? sender.id : sender.email, // agent get agent id or client
-            message: data.message,
-            updated_at: datetime,
-            user_email: sender.id ? "" : sender.email, // agent get agent id or client
-            user_name: sender.id ? "" : sender.name,
+        // Check if user is already join room
+        let userInRoom = await isUserInRoom(io, socket, roomId)
+        if(!userInRoom.success) {
+            socket.emit('message', userInRoom)
+            return userInRoom
+        }
+
+        chatContent = {
+            ...chatContent,
+            ...{
+                agent_name: sender.id ? sender.name : "",
+                created_at: datetime,
+                file_id: data.file_id ? data.file_id : null,
+                file_name: data.file_name ? data.file_name : null,
+                file_path: data.file_path ? data.file_path : null,
+                file_type: data.file_type ? data.file_type : null,
+                file_url: data.file_url ? data.file_url : null,
+                formatted_date: datetime,
+                from: sender.id ? sender.id : sender.email, // agent get agent id or client
+                message: data.message,
+                updated_at: datetime,
+                user_email: sender.id ? "" : sender.email, // agent get agent id or client
+                user_name: sender.id ? "" : sender.name,
+            }
         }
     }
+
+    // Chat type is Whatsapp
+    if(type == 'whatsapp') {
+        let setMessageData = await mappingDataSMToWhatsapp(io, null, data)
+        chatContent = setMessageData
+    } // end if whatsapp
 
     // Save to db
     let saveMsg = await redisClient.call('JSON.ARRAPPEND', roomId, '.', JSON.stringify(chatContent))
@@ -494,8 +556,15 @@ const sendMessage = async(io, socket, data) => {
         chatContent.avatar = currentRoomAgentData[chatContent.from].avatar
     }
 
+    // Replace file url domain/base url
     if(chatContent.file_path && chatContent.file_url) {
-        let changedUrl = await replaceBaseUrl(chatContent.file_url)
+        let changedUrl = null
+        if(type == 'whatsapp') {
+            changedUrl = await replaceBaseUrl(chatContent.file_url, process.env.SOCMED_FILE_STORAGE_URL ? process.env.SOCMED_FILE_STORAGE_URL : 'http://localhost:4000')
+        } else {
+            changedUrl = await replaceBaseUrl(chatContent.file_url)
+        }
+
         chatContent.file_url = changedUrl
     }
 
@@ -535,12 +604,18 @@ const sendMessage = async(io, socket, data) => {
         let pendingDepartmentRoom = `company:${getMessages.company_name}:dept:${getMessages.department_name}:pending_chat_room`
         let pendingTransferDepartmentRoom = `company:${getMessages.company_name}:dept:${getMessages.department_name}:pending_transfer_chat_room`;
 
+        // Get list chat from selected room
         selectedRoom = pendingDepartmentRoom
         emitKey = 'chat.pending'
         if(getMessages.status == 2) {
             selectedRoom = pendingTransferDepartmentRoom
             emitKey = 'chat.pendingtransfer'
         }
+            // Get list pending chat from socmed
+            if(type == 'whatsapp') {
+                let socmedPendingRoom = `company:${getMessages.company_name}:dept:fromsocmed:pending_chat_room`
+                selectedRoom = socmedPendingRoom
+            }
 
         // Add condition if chat is pending transfer to agent
         // code...
@@ -560,6 +635,54 @@ const sendMessage = async(io, socket, data) => {
     }
 }
 
+/**
+ * Set data to store to database/redis
+ * When message comes from Whatsapp
+ *
+ * @param {*} io
+ * @param {*} socket
+ * @param {*} data
+ * @returns
+ */
+ const mappingDataSMToWhatsapp = async (io, socket=null, data) => {
+    let sender = { name: data.user_name }
+    let datetime = getCurrentDateTime()
+
+    let chatContent = predefinedBubbleKeys
+    chatContent = {
+        ...chatContent,
+        ...{
+            agent_name: sender.id ? sender.name : "",
+            created_at: datetime,
+            formatted_date: datetime,
+            from: data.from,
+            message: data.message,
+            no_whatsapp: data.no_whatsapp,
+            updated_at: datetime,
+            user_email: null,
+            user_name: data.user_name,
+            user_phone: data.user_phone,
+
+            file_id: data.file_id ? data.file_id : null,
+            file_name: data.file_name ? data.file_name : null,
+            file_path: data.file_path ? data.file_path : null,
+            file_type: data.file_type ? data.file_type : null,
+            file_url: data.file_url ? data.file_url : null,
+        }
+    }
+
+    return chatContent
+}
+
+/**
+ * End Chat
+ *
+ * Action for end a chat/resolve a chat
+ * @param {*} io
+ * @param {*} socket
+ * @param {*} data
+ * @returns
+ */
 const endChat = async(io, socket, data) => {
     let sender = socket.request.session.user
     let chatId = data.chatId
@@ -851,6 +974,7 @@ module.exports = {
     getClientDetailByChatId,
     getClientOngoingChat,
     getClientResolveList,
+    getClientWhatsappOngoingChat,
     getMessagesByChatId,
     getOngoingListByUser,
     getPendingListByRoomKey,

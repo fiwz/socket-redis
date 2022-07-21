@@ -1,21 +1,39 @@
 const moment = require('moment');
 const url = require("url")
+// const os = require("os")
 
 // Redis
 const redis = require('../config/redis');
 const redisF = redis.justVariable
 const redisClient = redis.client
 
-const getCurrentDateTime = (type=null) => {
+// console.log('os', os)
+
+const getCurrentDateTime = (type=null, separator='-') => {
     let currentDate = moment().utc().utcOffset(+7)
-    let date = currentDate.format('YYYY-MM-DD HH:mm:ss') // WIB
+    let date = currentDate.format(`YYYY${separator}MM${separator}DD HH:mm:ss`) // WIB
     // if locale is set moment().utc().utcOffset(process.env.TIMEZONE).format('YYYY-MM-DD h:mm:ss')
 
     if(type === 'unix') {
         date = currentDate.unix()
     }
 
+    if(type === 'dateonly') {
+        date = currentDate.format(`YYYY${separator}MM${separator}DD`)
+    }
+
     return date
+}
+
+const randomString = (length) => {
+    var result = ""
+    var characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
+    var charactersLength = characters.length
+    for (var i = 0; i < length; i++) {
+        result += characters.charAt(Math.floor(Math.random() * charactersLength))
+    }
+
+    return result;
 }
 
 const slugify = function(str) {
@@ -135,6 +153,7 @@ module.exports = {
     getCurrentDateTime,
     getMemberDataFromBubble,
     getValueByArrayColumn,
+    randomString,
     replaceBaseUrl,
     revertSlugify,
     slugify,

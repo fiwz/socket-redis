@@ -135,7 +135,6 @@ initPubSub();
 const {
   initWhatsappService
 } = require('./services/whatsapp-service')
-initWhatsappService()
 
 /**
  * UI
@@ -164,6 +163,7 @@ app.post('/login', async function (req, res) {
     phone: savedData.phone_agent,
     roles_id: savedData.roles_id,
     token: savedData.token,
+    uuid: savedData.uuid,
   };
   req.session.user = user;
 
@@ -331,4 +331,5 @@ const onConnection = (socket) => {
 };
 
 // Socket Connection
+initWhatsappService(mainNamespace)
 mainNamespace.on('connection', onConnection);
