@@ -4,3 +4,5 @@ package-lock.json
 yarn.lock
 *_bak
 .wwebjs_auth/
+public/whatsapp-chat/*
+!public/whatsapp-chat/.gitkeep
