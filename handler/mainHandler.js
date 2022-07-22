@@ -6,8 +6,6 @@ const sub = redis.sub;
 
 const _ = require('lodash');
 
-const { getCurrentDateTime } = require('../utils/helpers');
-
 const {
     endChat,
     getAllChatList,

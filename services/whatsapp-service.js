@@ -60,8 +60,8 @@ const {
 const {
     getClientWhatsappOngoingChat,
     getPendingListByUser,
-    sendMessage,
-} = require("./main-chat-service")
+    sendMessage
+} = require("../utils/chat-action")
 
 /**
  * Define Variable
@@ -460,7 +460,92 @@ const handleMessageWa = async (io=null, whichClient) => {
     })
 }
 
+const replyToClientWhatsapp = async(socket, data) => {
+    let selectedCompany = null
+    let clientSenderWaNumber = data.no_whatsapp ? data.no_whatsapp : null
+
+    let checkMember = await validateMembersBeforeSend(socket, {
+        company_name: data.company_name,
+        no_whatsapp: data.no_whatsapp
+    })
+    if(checkMember && !checkMember.success)
+        return checkMember
+
+    selectedCompany = checkMember.data.company_whatsapp_data
+
+    // Validate/check company's whatsapp account state before send data
+    let currentCompanySate = await checkCompanyWhatsappState(selectedCompany)
+    // console.log('currentCompanySate', currentCompanySate)
+    if(currentCompanySate && !currentCompanySate.success) {
+        requestResult = errorResponseFormat(currentCompanySate.data, `Failed to send message. ${currentCompanySate.message}`)
+        socket.emit('message', requestResult)
+        return requestResult
+    }
+
+    // SEND TO USER WHATSAPP
+    if (!data.file_id) {
+        // ONLY MESSAGE (WITHOUT FILE)
+        selectedCompany.instanceWA.sendMessage(
+            clientSenderWaNumber,
+            data.message
+        )
+    } else {
+        // code...
+    }
+}
+
+const checkCompanyWhatsappState = async(whatsappAccountArray) => {
+    // Validate/check company's whatsapp account before send data
+    let currentCompanySate = await whatsappAccountArray.instanceWA.getState()
+    let requestResult = null
+    if(currentCompanySate != 'CONNECTED') {
+        requestResult = errorResponseFormat(currentCompanySate, `Company's Whatsapp account is not active. Please Try again in a moment.`)
+        return requestResult
+    }
+
+    requestResult = successResponseFormat(true, `Company's Whatsapp account is active`)
+    return requestResult
+}
+
+const validateMembersBeforeSend = async(socket, data) => {
+    let selectedCompany = null
+    let clientSenderWaNumber = data.no_whatsapp ? data.no_whatsapp : null
+    let requestResult = null
+
+    // Validate client's whatsapp number
+    requestResult = errorResponseFormat(data, `Failed to send message. Client's Whatsapp account is not found.`)
+    if(!clientSenderWaNumber) {
+        socket.emit('message', requestResult)
+        return requestResult
+    }
+
+    // let isWhatsappFromFormat = clientSenderWaNumber.search('@')
+    let isWhatsappFromFormat = clientSenderWaNumber.includes('@c.us')
+    if(!isWhatsappFromFormat) {
+        socket.emit('message', requestResult)
+        return requestResult
+    }
+
+    // Search and validate company's whatsapp number
+    if(this.clientWa && this.clientWa.length > 0) {
+        selectedCompany = this.clientWa.find((value, index) => {
+            if(value && value.companyName === data.company_name)
+                return value
+        })
+    }
+
+    if(!selectedCompany) {
+        requestResult = errorResponseFormat(data, `Failed to send message. Company's Whatsapp account is not found or not active.`)
+        socket.emit('message', requestResult)
+        return requestResult
+    }
+
+    requestResult = successResponseFormat({ company_whatsapp_data: selectedCompany }, 'Validate chat member is success.')
+    return requestResult
+}
+
 module.exports = {
     initWhatsappService,
     integrateWhatsappAccount,
+    replyToClientWhatsapp,
 }

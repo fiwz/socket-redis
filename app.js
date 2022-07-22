@@ -68,6 +68,7 @@ const {
   getClientDetailByChatId,
   getMessagesByChatId,
   getPendingListByRoomKey,
+  initAllChatService,
 } = require('./services/main-chat-service');
 
 // Session Middleware
@@ -132,9 +133,9 @@ const initPubSub = () => {
 };
 initPubSub();
 
-const {
-  initWhatsappService
-} = require('./services/whatsapp-service')
+// const {
+//   initWhatsappService
+// } = require('./services/whatsapp-service')
 
 /**
  * UI
@@ -331,5 +332,6 @@ const onConnection = (socket) => {
 };
 
 // Socket Connection
-initWhatsappService(mainNamespace)
+// initWhatsappService(mainNamespace)
+initAllChatService(mainNamespace)
 mainNamespace.on('connection', onConnection);
