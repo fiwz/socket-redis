@@ -293,8 +293,16 @@ const getClientWhatsappOngoingChat = async (WhatsappFromNumber) => {
                     }
                 }
 
+                let changedUrl = latestMessage.file_url
+                // Change url only for latest message
                 if(latestMessage.file_path && latestMessage.file_url) {
-                    let changedUrl = await replaceBaseUrl(latestMessage.file_url)
+                    // Replace base url based on chat channel
+                    if(firstMessage.id_channel != 1) {
+                        changedUrl = await replaceBaseUrl(latestMessage.file_url, process.env.SOCMED_FILE_STORAGE_URL ? process.env.SOCMED_FILE_STORAGE_URL : 'http://localhost:4000')
+                    } else {
+                        changedUrl = await replaceBaseUrl(latestMessage.file_url)
+                    }
+
                     latestMessage.file_url = changedUrl
                 }
 
@@ -311,7 +319,13 @@ const getClientWhatsappOngoingChat = async (WhatsappFromNumber) => {
                             } // end if agent data exists
 
                             if(bubbleItem.file_path && bubbleItem.file_url) {
-                                let changedUrl = await replaceBaseUrl(bubbleItem.file_url)
+                                // Replace base url based on chat channel
+                                if(firstMessage.id_channel != 1) {
+                                    changedUrl = await replaceBaseUrl(bubbleItem.file_url, process.env.SOCMED_FILE_STORAGE_URL ? process.env.SOCMED_FILE_STORAGE_URL : 'http://localhost:4000')
+                                } else {
+                                    changedUrl = await replaceBaseUrl(bubbleItem.file_url)
+                                }
+
                                 bubbleItem.file_url = changedUrl
                             }
                         }
@@ -351,6 +365,9 @@ const getClientWhatsappOngoingChat = async (WhatsappFromNumber) => {
  * @returns
  */
  const sendMessage = async(io, socket=null, data, type=null) => {
+
+    console.log('data di sendMessage', data)
+
     let chatId = data.chatId
     let roomId = ''
     let chatContent = predefinedBubbleKeys
@@ -401,7 +418,7 @@ const getClientWhatsappOngoingChat = async (WhatsappFromNumber) => {
     }
 
     // Chat type is Whatsapp
-    if(type == 'whatsapp') {
+    if(type == 'whatsapp' || data.id_channel == 2) {
         let setMessageData = await mappingDataSMToWhatsapp(io, null, data)
         chatContent = setMessageData
     } // end if whatsapp
@@ -421,10 +438,10 @@ const getClientWhatsappOngoingChat = async (WhatsappFromNumber) => {
         chatContent.avatar = currentRoomAgentData[chatContent.from].avatar
     }
 
-    // Replace file url domain/base url
-    if(chatContent.file_path && chatContent.file_url) {
+    // Replace base url based on chat channel
+    if(chatContent.file_path && getMessages.id_channel) {
         let changedUrl = null
-        if(type == 'whatsapp') {
+        if(type == 'whatsapp' || chatContent.id_channel == 2) {
             changedUrl = await replaceBaseUrl(chatContent.file_url, process.env.SOCMED_FILE_STORAGE_URL ? process.env.SOCMED_FILE_STORAGE_URL : 'http://localhost:4000')
         } else {
             changedUrl = await replaceBaseUrl(chatContent.file_url)

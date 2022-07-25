@@ -21,7 +21,7 @@ const {
 } = require("whatsapp-web.js")
 
 const DBM = require("../utils/DBManagement");
-const dbm = new DBM();
+const dbm = new DBM()
 
 /**
  * Import 'file-type' ES-Module in CommonJS Node.js module
@@ -67,6 +67,10 @@ const {
  * Define Variable
  */
 this.clientWa = []
+const definedErrorMessage = {
+    companyWhatsappNotActive: `Company's Whatsapp account is not active. Please Try again in a moment.`,
+    whatsappErrorSendMsg: 'Error send message to Whatsapp client:'
+}
 
 const initWhatsappService = (io=null, socket=null, data=null) => {
     console.log('init wa session')
@@ -379,6 +383,8 @@ const handleMessageWa = async (io=null, whichClient) => {
                     created_at: datetime,
                     updated_at: datetime,
                     formatted_date: datetime,
+                    id_channel: 2,
+                    channel_name: 'Whatsapp',
                 }
 
                 // Set file key
@@ -412,8 +418,6 @@ const handleMessageWa = async (io=null, whichClient) => {
                             user_email: null,
                             user_name: formattedPhoneNumber,
                             user_phone: formattedPhoneNumber,
-                            id_channel: 2,
-                            channel_name: 'Whatsapp',
                             status: 0
                         },
                     }
@@ -448,7 +452,7 @@ const handleMessageWa = async (io=null, whichClient) => {
                             user_phone: formattedPhoneNumber,
                         }
                     }
-                    let storeMessage = await sendMessage( io, null, chatContent, 'whatsapp')
+                    let storeMessage = await sendMessage( io, null, chatContent)
                 }
             } // End of if message exists
         } catch (e) {
@@ -475,7 +479,8 @@ const replyToClientWhatsapp = async(socket, data) => {
 
     // Validate/check company's whatsapp account state before send data
     let currentCompanySate = await checkCompanyWhatsappState(selectedCompany)
-    // console.log('currentCompanySate', currentCompanySate)
+    console.log('currentCompanySate', currentCompanySate)
+
     if(currentCompanySate && !currentCompanySate.success) {
         requestResult = errorResponseFormat(currentCompanySate.data, `Failed to send message. ${currentCompanySate.message}`)
         socket.emit('message', requestResult)
@@ -489,8 +494,68 @@ const replyToClientWhatsapp = async(socket, data) => {
             clientSenderWaNumber,
             data.message
         )
+        .then((response) => {
+            // Success send message
+            // console.log('Send message to Whatsapp client:', response)
+        })
+        .catch((error) => {
+            console.error(definedErrorMessage.whatsappErrorSendMsg, error)
+            requestResult = errorResponseFormat(null, definedErrorMessage.companyWhatsappNotActive)
+            socket.emit('message', requestResult)
+
+            return requestResult
+        })
     } else {
-        // code...
+        // SEND MEDIA FILE TO WHATSAPP
+        let chatFilePath = "public/" + data.file_path;
+
+        fs.exists(chatFilePath, function (isExist) {
+            if (isExist) {
+                // console.log("exists:", path);
+                const media = MessageMedia.fromFilePath(chatFilePath);
+                if (!data.message) {
+                    // Send with caption
+                    selectedCompany.instanceWA.sendMessage(
+                        clientSenderWaNumber,
+                        media
+                    )
+                    .then((response) => {
+                        // Success send message
+                        // console.log('Send message with file to Whatsapp client:', response)
+                    })
+                    .catch((error) => {
+                        console.error(definedErrorMessage.whatsappErrorSendMsg, error)
+                        requestResult = errorResponseFormat(null, definedErrorMessage.companyWhatsappNotActive)
+                        socket.emit('message', requestResult)
+
+                        return requestResult
+                    })
+                } else {
+                    selectedCompany.instanceWA.sendMessage(
+                        clientSenderWaNumber,
+                        media,
+                        { caption: data.message } // only available for image and video
+                    )
+                    .then((response) => {
+                        // Success send message
+                        // console.log('Send message with file and caption to Whatsapp client:', response)
+                    })
+                    .catch((error) => {
+                        console.error(definedErrorMessage.whatsappErrorSendMsg, error)
+                        requestResult = errorResponseFormat(null, definedErrorMessage.companyWhatsappNotActive)
+                        socket.emit('message', requestResult)
+
+                        return requestResult
+                    })
+                } // End if there is caption
+            } else {
+                console.error(definedErrorMessage.whatsappErrorSendMsg, error)
+                requestResult = errorResponseFormat(null, `File not found ${chatFilePath}`)
+                socket.emit('message', requestResult)
+
+                return requestResult
+            }
+        });
     }
 }
 
@@ -499,7 +564,7 @@ const checkCompanyWhatsappState = async(whatsappAccountArray) => {
     let currentCompanySate = await whatsappAccountArray.instanceWA.getState()
     let requestResult = null
     if(currentCompanySate != 'CONNECTED') {
-        requestResult = errorResponseFormat(currentCompanySate, `Company's Whatsapp account is not active. Please Try again in a moment.`)
+        requestResult = errorResponseFormat(currentCompanySate, definedErrorMessage.companyWhatsappNotActive)
         return requestResult
     }
 
