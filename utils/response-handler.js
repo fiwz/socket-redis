@@ -21,15 +21,18 @@ const responseMessage = function (response, statusCode, message, isSuccess=true)
  *
  * Only formatter, not return response
  */
-const successResponseFormat = (data=null, message=null, statusCode=null) => {
+const successResponseFormat = (data=null, message=null, statusCode=null, response=null) => {
     let resultMessage = {
-        data: data,
+        success: true,
         message: message ? message : 'Successfully process the request.',
-        success: true
+        data: data,
     }
 
-    if(statusCode)
-        resultMessage.code = statusCode
+    if(response) {
+        resultMessage.code = statusCode ? statusCode : 200
+        response.status(resultMessage.code).json(resultMessage)
+        response.end()
+    }
 
     return resultMessage
 }
@@ -39,15 +42,18 @@ const successResponseFormat = (data=null, message=null, statusCode=null) => {
  *
  * Only formatter, not return response
  */
- const errorResponseFormat = (data=null, message=null, statusCode=null) => {
+ const errorResponseFormat = (data=null, message=null, statusCode=null, response=null) => {
     let resultMessage = {
-        data: data,
+        success: false,
         message: message ? message : 'Failed to process the request.',
-        success: false
+        data: data,
     }
 
-    if(statusCode)
-        resultMessage.code = statusCode
+    if(response) {
+        resultMessage.code = statusCode ? statusCode : 404
+        response.status(resultMessage.code).json(resultMessage)
+        response.end()
+    }
 
     return resultMessage
 }

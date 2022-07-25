@@ -54,7 +54,7 @@ const { responseData, responseMessage } = require('./utils/response-handler');
 // Router/routes
 const mainRouter = require('./routes/index-router');
 // Set Routing
-// app.use('/main-page', mainRouter)
+app.use('/api-socket', mainRouter)
 
 const {
   getCurrentDateTime,
