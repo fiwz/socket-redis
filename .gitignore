@@ -4,5 +4,7 @@ package-lock.json
 yarn.lock
 *_bak
 .wwebjs_auth/
-public/whatsapp-chat/*
-!public/whatsapp-chat/.gitkeep
+public/agent-client-chat/*
+!public/agent-client-chat/.gitkeep
+public/uploads/*
+!public/uploads/.gitkeep
