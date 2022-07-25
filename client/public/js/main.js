@@ -107,10 +107,6 @@ $(() => {
     // With fetch
     const response = fetch(`${BASE_URL}/login`, {
       method: "POST",
-      // headers: {
-      //   'Content-Type': 'application/json'
-      // },
-      body: JSON.stringify(dataAuthCompadany),
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(dataAuth),
       credentials: "include",
@@ -389,6 +385,11 @@ $(() => {
                     <small>${chat.formatted_date}</small>
                 </div
                 `);
+
+                // set id channel
+                if(idx == 0) {
+                    $('#message-reply-id-channel').val(chat.id_channel)
+                }
             });
 
             // set input reply value
@@ -433,6 +434,7 @@ $(() => {
       let roomArr = elementId.split(":");
       chatId = roomArr.pop();
     }
+    let id_channel = $('#message-reply-id-channel').val()
 
     // Upload File via API
     // And then emit to socket
@@ -463,8 +465,15 @@ $(() => {
         type: "application/json",
       });
       const data = new FormData();
-      data.append("document", blob);
-      data.append("file", file);
+      // data.append("document", blob);
+
+      // Change API URL and field name
+      if(id_channel != 1) {
+          url = `${BASE_URL}/api-socket/upload-file`
+          data.append("files", file);
+      } else {
+          data.append("file", file);
+      }
 
       axios({
         method: "post",
@@ -474,7 +483,7 @@ $(() => {
         // withCredentials: true,
       })
         .then(function (response) {
-          console.log("Upload file response: ", response.data);
+          console.log("Upload file response: ", response);
 
           let fileData = response.data.data;
           socket.emit("message", {

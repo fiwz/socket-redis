@@ -100,6 +100,7 @@
                             <input type="hidden" id="date" name="date" class="mb-3 form-control" />
                             <div class="d-flex-column">
                                 <input type="text" id="message-reply" name="message_reply" class="mb-3 form-control" placeholder="Reply Message" />
+                                <input type="text" id="message-reply-id-channel" name="message_reply_id_channel" class="mb-3 form-control" placeholder="ID Channel" />
                                 <input type="text" id="message-reply-file-token" class="mb-3 form-control" name="message_reply_file_token" placeholder="(Agent) Agent Token">
                                 <input type="text" id="message-reply-file-api-secret" class="mb-3 form-control" name="message_reply_file_api_secret" placeholder="(Client) API Secret Key">
                                 <input type="file" id="message-reply-file" class="mb-3 form-control" name="message_reply_file">
